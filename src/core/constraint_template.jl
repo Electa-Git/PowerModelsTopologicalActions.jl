@@ -237,7 +237,12 @@ end
 
 function constraint_ZIL_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     switch_couple = _PM.ref(pm, nw, :switch_couples, i)
-    constraint_ZIL_switch(pm, nw, switch_couple["f_sw"], switch_couple["switch_split"])
+    constraint_ZIL_switch(pm, nw, switch_couple["t_sw"], switch_couple["switch_split"])
+end
+
+function constraint_ZIL_no_OTS(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
+    switch_couple = _PM.ref(pm, nw, :switch_couples, i)
+    constraint_ZIL_no_OTS(pm, nw, switch_couple["t_sw"], switch_couple["f_sw"], switch_couple["switch_split"])
 end
 
 function constraint_ZIL_dc_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
@@ -358,7 +363,7 @@ end
 
 function constraint_exclusivity_switch_no_OTS(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     switch_couple = _PM.ref(pm, nw, :switch_couples, i)
-    constraint_exclusivity_switch(pm, nw, switch_couple["f_sw"], switch_couple["t_sw"])
+    constraint_exclusivity_switch_no_OTS(pm, nw, switch_couple["f_sw"], switch_couple["t_sw"])
 end
 
 function constraint_voltage_angles_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)

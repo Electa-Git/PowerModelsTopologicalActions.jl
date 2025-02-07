@@ -94,6 +94,7 @@ function constraint_switch_thermal_limit(pm::_PM.AbstractDCPModel, n::Int, f_idx
     psw = _PM.var(pm, n, :psw, f_idx)
 
     JuMP.@constraint(pm.model, psw <= rating)
+    JuMP.@constraint(pm.model, - rating <= psw)
 end
 
 function constraint_BS_OTS_branch(pm::_PM.AbstractDCPModel, n::Int,i_1, i_2, pf, pt, qf, qt ,sw,aux)
@@ -117,4 +118,6 @@ function constraint_switch_voltage_on_off_big_M(pm::_PM.AbstractDCPModel, n::Int
 
     JuMP.@constraint(pm.model, va_fr - va_to <= (1-z)*M_va)
     JuMP.@constraint(pm.model,  - (1-z)*M_va <= va_fr - va_to)
+    JuMP.@constraint(pm.model, va_to - va_fr <= (1-z)*M_va)
+    JuMP.@constraint(pm.model,  - (1-z)*M_va <= va_to - va_fr)
 end

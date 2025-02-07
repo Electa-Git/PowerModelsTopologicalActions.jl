@@ -463,27 +463,33 @@ end
 
 function compute_couples_of_switches(data)
     switch_couples = Dict{String,Any}() # creating a dictionary to check the couples of switches linking each grid element to both parts of the split busbar
-    #t_sws = []
     for (sw_id,sw) in data["switch"]
         for l in eachindex(data["switch"])
             if (haskey(sw, "auxiliary") && haskey(data["switch"][l], "auxiliary")) && (sw["auxiliary"] == data["switch"][l]["auxiliary"]) && (sw["original"] == data["switch"][l]["original"]) && (sw["index"] != data["switch"][l]["index"]) &&  (sw["bus_split"] == data["switch"][l]["bus_split"])
-                print(l,"\n")
-                #if !issubset(sw["index"],t_sws) 
-                    switch_couples["$sw_id"] = Dict{String,Any}()
-                    switch_couples["$sw_id"]["f_sw"] = deepcopy(sw["index"])
-                    switch_couples["$sw_id"]["t_sw"] = deepcopy(data["switch"][l]["index"])
-                    switch_couples["$sw_id"]["bus_split"] = deepcopy(data["switch"][l]["bus_split"])
-                    for (s_id,s) in data["switch"] 
-                        if !(haskey(s, "auxiliary")) && haskey(s,"ZIL") && s["bus_split"] == switch_couples["$sw_id"]["bus_split"]
-                            switch_couples["$sw_id"]["switch_split"] = deepcopy(s["index"])
-                        end
+                switch_couples["$sw_id"] = Dict{String,Any}()
+                switch_couples["$sw_id"]["f_sw"] = deepcopy(sw["index"])
+                switch_couples["$sw_id"]["t_sw"] = deepcopy(data["switch"][l]["index"])
+                switch_couples["$sw_id"]["bus_split"] = deepcopy(data["switch"][l]["bus_split"])
+                for (s_id,s) in data["switch"] 
+                    if !(haskey(s, "auxiliary")) && haskey(s,"ZIL") && s["bus_split"] == switch_couples["$sw_id"]["bus_split"]
+                        switch_couples["$sw_id"]["switch_split"] = deepcopy(s["index"])
                     end
-                    #push!(t_sws,switch_couples["$sw_id"]["t_sw"])
-                #end
+                end
             end
         end
     end 
+    eliminate_duplicates_couple_of_switches(switch_couples)
     return switch_couples
+end
+
+function eliminate_duplicates_couple_of_switches(switch_couples)
+    for (sw_id,sw) in switch_couples
+        for l in eachindex(switch_couples)
+            if sw["f_sw"] == switch_couples[l]["t_sw"] && sw["t_sw"] == switch_couples[l]["f_sw"]
+                delete!(switch_couples,l)
+            end
+        end
+    end
 end
 
 function compute_couples_of_dcswitches(data)
@@ -507,5 +513,6 @@ function compute_couples_of_dcswitches(data)
             end
         end
     end
+    eliminate_duplicates_couple_of_switches(switch_couples)
     return switch_couples
 end
