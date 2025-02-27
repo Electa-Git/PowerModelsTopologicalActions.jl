@@ -1,3 +1,32 @@
+function variable_bus_voltage_sp(pm::_PM.AbstractLPACModel; kwargs...)
+    variable_bus_voltage_angle_sp(pm; kwargs...)
+    _PM.variable_bus_voltage_magnitude(pm; kwargs...)
+    _PM.variable_buspair_cosine(pm; kwargs...)
+end
+
+function variable_bus_voltage_lpac_sp(pm::_PM.AbstractLPACModel; kwargs...)
+    variable_bus_voltage_angle_sp(pm; kwargs...)
+    variable_bus_voltage_magnitude_sp(pm; kwargs...)
+    _PM.variable_buspair_cosine(pm; kwargs...)
+end
+
+function variable_bus_voltage_magnitude_sp(pm::_PM.AbstractLPACModel; nw::Int=_PM.nw_id_default, bounded::Bool=true, report::Bool=true)
+    phi = _PM.var(pm, nw)[:phi] = JuMP.@variable(pm.model,
+    [i in _PM.ids(pm, nw, :bus)], base_name="$(nw)_phi",
+    start = _PM.comp_start_value(_PM.ref(pm, nw, :bus, i), "phi_starting_value")
+    )
+
+    if bounded
+        for (i, bus) in ref(pm, nw, :bus)
+            JuMP.set_lower_bound(phi[i], bus["vmin"] - 1.0)
+            JuMP.set_upper_bound(phi[i], bus["vmax"] - 1.0)
+        end
+    end
+
+    report && _IM.sol_component_value(pm, _PM.pm_it_sym, nw, :bus, :phi, _PM.ids(pm, nw, :bus), phi)
+end
+
+
 function constraint_ohms_ots_dc_branch(pm::_PM.AbstractLPACCModel, n::Int,  f_bus, t_bus, f_idx, t_idx, r, p)
     i, f_bus, t_bus = f_idx
     p_dc_fr = _PM.var(pm, n, :p_dcgrid, f_idx)
@@ -56,8 +85,8 @@ function constraint_switch_voltage_on_off_big_M(pm::_PM.AbstractLPACCModel, n::I
     va_fr = _PM.var(pm, n, :va, f_bus)
     va_to = _PM.var(pm, n, :va, t_bus)
     z = _PM.var(pm, n, :z_switch, i)
-    M_vm = 1
-    M_va = 2*pi
+    M_vm = 1 # 0.2 -> tighter implies lower values for lpac case 5 but higher for AC-fc
+    M_va = 2*pi # pi
 
     JuMP.@constraint(pm.model, phi_fr - phi_to <= (1-z)*M_vm)
     JuMP.@constraint(pm.model, va_fr - va_to <= (1-z)*M_va)
@@ -106,6 +135,24 @@ function constraint_power_balance_ac_switch(pm::_PM.AbstractLPACCModel, n::Int, 
 
     cstr_p = JuMP.@constraint(pm.model, sum(p[a] for a in bus_arcs) + sum(pconv_grid_ac[c] for c in bus_convs_ac) + sum(psw[sw] for sw in bus_arcs_sw) == sum(pg[g] for g in bus_gens)  - sum(pd[d] for d in bus_loads) - sum(gs[s] for s in bus_shunts)*(1.0 + 2*phi))
     cstr_q = JuMP.@constraint(pm.model, sum(q[a] for a in bus_arcs) + sum(qconv_grid_ac[c] for c in bus_convs_ac) + sum(qsw[sw] for sw in bus_arcs_sw) == sum(qg[g] for g in bus_gens)  - sum(qd[d] for d in bus_loads) + sum(bs[s] for s in bus_shunts)*(1.0 + 2*phi))
+
+    if _IM.report_duals(pm)
+        _PM.sol(pm, n, :bus, i)[:lam_kcl_r] = cstr_p
+        _PM.sol(pm, n, :bus, i)[:lam_kcl_i] = cstr_q
+    end
+end
+
+function constraint_power_balance_ac_grid_ac_switch(pm::_PM.AbstractLPACCModel, n::Int, i::Int, bus_arcs, bus_arcs_sw, bus_gens, bus_loads, bus_shunts, pd, qd, gs, bs)
+    phi  = _PM.var(pm, n, :phi, i)
+    p = _PM.var(pm, n,  :p)
+    q = _PM.var(pm, n,  :q)
+    pg = _PM.var(pm, n,  :pg)
+    qg = _PM.var(pm, n,  :qg)
+    psw  = _PM.var(pm, n, :psw)
+    qsw  = _PM.var(pm, n, :qsw)
+
+    cstr_p = JuMP.@constraint(pm.model, sum(p[a] for a in bus_arcs) + sum(psw[sw] for sw in bus_arcs_sw) == sum(pg[g] for g in bus_gens)  - sum(pd[d] for d in bus_loads) - sum(gs[s] for s in bus_shunts)*(1.0 + 2*phi))
+    cstr_q = JuMP.@constraint(pm.model, sum(q[a] for a in bus_arcs) + sum(qsw[sw] for sw in bus_arcs_sw) == sum(qg[g] for g in bus_gens)  - sum(qd[d] for d in bus_loads) + sum(bs[s] for s in bus_shunts)*(1.0 + 2*phi))
 
     if _IM.report_duals(pm)
         _PM.sol(pm, n, :bus, i)[:lam_kcl_r] = cstr_p

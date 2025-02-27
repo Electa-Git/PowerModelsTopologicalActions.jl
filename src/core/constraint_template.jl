@@ -418,6 +418,24 @@ function constraint_power_balance_ac_switch(pm::_PM.AbstractPowerModel, i::Int; 
     constraint_power_balance_ac_switch(pm, nw, i, bus_arcs, bus_arcs_sw, bus_gens, bus_convs_ac, bus_loads, bus_shunts, pd, qd, gs, bs)
 end
 
+function constraint_power_balance_ac_grid_ac_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
+    bus = _PM.ref(pm, nw, :bus, i)
+    bus_arcs = _PM.ref(pm, nw, :bus_arcs, i)
+    bus_arcs_sw = _PM.ref(pm, nw, :bus_arcs_sw, i)
+    bus_gens = _PM.ref(pm, nw, :bus_gens, i)
+    bus_loads = _PM.ref(pm, nw, :bus_loads, i)
+    bus_shunts = _PM.ref(pm, nw, :bus_shunts, i)
+
+    pd = Dict(k => _PM.ref(pm, nw, :load, k, "pd") for k in bus_loads)
+    qd = Dict(k => _PM.ref(pm, nw, :load, k, "qd") for k in bus_loads)
+
+    gs = Dict(k => _PM.ref(pm, nw, :shunt, k, "gs") for k in bus_shunts)
+    bs = Dict(k => _PM.ref(pm, nw, :shunt, k, "bs") for k in bus_shunts)
+
+    constraint_power_balance_ac_grid_ac_switch(pm, nw, i, bus_arcs, bus_arcs_sw, bus_gens, bus_loads, bus_shunts, pd, qd, gs, bs)
+end
+
+
 function constraint_switch_difference_voltage_angles(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     switch = _PM.ref(pm, nw, :switch, i)
 

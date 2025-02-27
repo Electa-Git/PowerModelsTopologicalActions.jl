@@ -22,6 +22,14 @@ function constraint_ohms_ots_dc_branch(pm::_PM.AbstractWRModels, n::Int,  f_bus,
     end
 end
 
+function constraint_converter_losses(pm::_PM.AbstractWModels, n::Int, i::Int, a, b, c, plmax)
+    pconv_ac = _PM.var(pm, n,  :pconv_ac, i)
+    pconv_dc = _PM.var(pm, n,  :pconv_dc, i)
+    iconv = _PM.var(pm, n,  :iconv_ac, i)
+    iconv_sq = _PM.var(pm, n,  :iconv_ac_sq, i)
+
+    JuMP.@constraint(pm.model, pconv_ac + pconv_dc == a + b*iconv + c*iconv_sq)
+end
 
 function constraint_power_balance_ac_switch(pm::_PM.AbstractWRModels, n::Int, i::Int, bus_arcs, bus_arcs_sw, bus_gens, bus_convs_ac, bus_loads, bus_shunts, pd, qd, gs, bs)
     w = _PM.var(pm, n, :w, i)

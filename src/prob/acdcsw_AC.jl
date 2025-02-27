@@ -160,6 +160,3 @@ function build_acdcsw_AC_no_OTS(pm::_PM.AbstractPowerModel) # refer to the model
         end
     end
 end
-
-
-

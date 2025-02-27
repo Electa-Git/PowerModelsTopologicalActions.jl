@@ -126,7 +126,7 @@ function constraint_dc_switch_power_on_off(pm::_PM.AbstractPowerModel, n::Int, i
     psw_lb, psw_ub = _IM.variable_domain(psw)
 
     JuMP.@constraint(pm.model, psw <= psw_ub*z)
-    JuMP.@constraint(pm.model, psw >= psw_lb*z)
+    JuMP.@constraint(pm.model, psw_lb*z <= psw)
 end
 
 function constraint_switch_power_on_off(pm::_PM.AbstractPowerModel, n::Int, i, f_idx)
@@ -138,9 +138,9 @@ function constraint_switch_power_on_off(pm::_PM.AbstractPowerModel, n::Int, i, f
     qsw_lb, qsw_ub = _IM.variable_domain(qsw)
 
     JuMP.@constraint(pm.model, psw <= psw_ub*z)
-    JuMP.@constraint(pm.model, psw >= psw_lb*z)
+    JuMP.@constraint(pm.model, psw_lb*z <= psw)
     JuMP.@constraint(pm.model, qsw <= qsw_ub*z)
-    JuMP.@constraint(pm.model, qsw >= qsw_lb*z)
+    JuMP.@constraint(pm.model, qsw_lb*z <= qsw)
 end
 
 function constraint_switch_power(pm::_PM.AbstractPowerModel, n::Int, i, f_idx)
@@ -170,7 +170,7 @@ function constraint_ZIL_switch(pm::_PM.AbstractPowerModel, n::Int, i_1, i_2)
     JuMP.@constraint(pm.model, z_1 <= (1.0 - z_2))
 end
 
-function constraint_ZIL_no_OTS(pm::_PM.AbstractPowerModel, n::Int, i_1, i_2, i_3)
+function constraint_ZIL_no_OTS(pm::_PM.AbstractPowerModel, n::Int, i_1, i_2, i_3) # Not needed
     z_1 = _PM.var(pm, n, :z_switch, i_1)
     z_2 = _PM.var(pm, n, :z_switch, i_2)
     z_3 = _PM.var(pm, n, :z_switch, i_3)
@@ -244,14 +244,14 @@ function constraint_BS_OTS_branch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2, p
     qf_ = _PM.var(pm, n, :q, qf)
     qt_ = _PM.var(pm, n, :q, qt)
 
-    JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*100)
-    JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*100)
-    JuMP.@constraint(pm.model, qf_ <= (z_1+z_2)*100)
-    JuMP.@constraint(pm.model, qt_ <= (z_1+z_2)*100)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*100 <= pf_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*100 <= pt_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*100 <= qf_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*100 <= qt_)
+    JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*10)
+    JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*10)
+    JuMP.@constraint(pm.model, qf_ <= (z_1+z_2)*10)
+    JuMP.@constraint(pm.model, qt_ <= (z_1+z_2)*10)
+    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pf_)
+    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pt_)
+    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= qf_)
+    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= qt_)
 
 end
 

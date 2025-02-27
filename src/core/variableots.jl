@@ -335,18 +335,13 @@ function variable_switch_indicator(pm::_PM.AbstractPowerModel; nw::Int=_PM.nw_id
 end
 
 function variable_switch_indicator_sp(pm::_PM.AbstractPowerModel; nw::Int=_PM.nw_id_default, bounded::Bool=true, relax::Bool=false, report::Bool=true)
-    br = Dict()
-    for l in _PM.ids(pm, nw, :switch)
-        br[l] = _PM.ref(pm,nw,:switch,l)
-    end
- 
     z_switch = _PM.var(pm, nw)[:z_switch] = JuMP.@variable(pm.model,
     [l in _PM.ids(pm, nw, :switch)], base_name="$(nw)_z_switch",
     binary = true,
-    start = _PM.comp_start_value(_PM.ref(pm, nw, :switch, l), "z_switch_start", br[l]["switch_status_initial"])
+    start = _PM.comp_start_value(_PM.ref(pm, nw, :switch, l), "starting_value")
     )
  
-    report && _PM.sol_component_value(pm, nw, :switch, :status, _PM.ids(pm, nw, :switch), z_switch)
+    report && _IM.sol_component_value(pm, _PM.pm_it_sym, nw, :switch, :status, _PM.ids(pm, nw, :switch), z_switch)
 end
 
 function variable_switch_indicator_linearised(pm::_PM.AbstractPowerModel; nw::Int=_PM.nw_id_default, bounded::Bool=true, relax::Bool=false, report::Bool=true)
