@@ -256,13 +256,12 @@ function constraint_BS_OTS_branch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_P
     branch_ = _PM.ref(pm, nw, :branch)
     single_switch = switch_[switch_couple["f_sw"]]
     branch_original = single_switch["original"]
-    
-    constraint_BS_OTS_branch(pm, nw, switch_couple["f_sw"],switch_couple["t_sw"], 
-    (branch_[branch_original]["index"],branch_[branch_original]["f_bus"],branch_[branch_original]["t_bus"]),
-    (branch_[branch_original]["index"],branch_[branch_original]["t_bus"],branch_[branch_original]["f_bus"]),
-    (branch_[branch_original]["index"],branch_[branch_original]["f_bus"],branch_[branch_original]["t_bus"]),
-    (branch_[branch_original]["index"],branch_[branch_original]["t_bus"],branch_[branch_original]["f_bus"]),
-    single_switch,"auxiliary")
+        constraint_BS_OTS_branch(pm, nw, switch_couple["f_sw"],switch_couple["t_sw"])
+    #(branch_[branch_original]["index"],branch_[branch_original]["f_bus"],branch_[branch_original]["t_bus"]),
+    #(branch_[branch_original]["index"],branch_[branch_original]["t_bus"],branch_[branch_original]["f_bus"]),
+    #(branch_[branch_original]["index"],branch_[branch_original]["f_bus"],branch_[branch_original]["t_bus"]),
+    #(branch_[branch_original]["index"],branch_[branch_original]["t_bus"],branch_[branch_original]["f_bus"]),
+    #single_switch,"auxiliary")
 end
 
 function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)

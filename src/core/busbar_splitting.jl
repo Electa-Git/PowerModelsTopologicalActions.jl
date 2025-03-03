@@ -581,6 +581,7 @@ function compute_couples_of_dcswitches(data)
 end
 
 function AC_busbar_split_AC_grid(data,bus_to_be_split) 
+    min_bus_original = minimum([bus["index"] for (b, bus) in data["bus"]]) 
     # Adding a new key to indicate which bus can be split + ZIL
     if length(bus_to_be_split) == 1
         for i in keys(data["bus"])

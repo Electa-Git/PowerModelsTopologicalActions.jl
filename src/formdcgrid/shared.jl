@@ -51,6 +51,24 @@ function constraint_power_balance_ac_switch(pm::_PM.AbstractWRModels, n::Int, i:
     end
 end
 
+function constraint_power_balance_ac_grid_ac_switch(pm::_PM.AbstractWRModels, n::Int, i::Int, bus_arcs, bus_arcs_sw, bus_gens, bus_loads, bus_shunts, pd, qd, gs, bs)
+    w = _PM.var(pm, n, :w, i)
+    p = _PM.var(pm, n,  :p)
+    q = _PM.var(pm, n,  :q)
+    pg = _PM.var(pm, n,  :pg)
+    qg = _PM.var(pm, n,  :qg)
+    psw  = _PM.var(pm, n, :psw)
+    qsw  = _PM.var(pm, n, :qsw)
+
+    cstr_p = JuMP.@constraint(pm.model, sum(p[a] for a in bus_arcs) + sum(psw[sw] for sw in bus_arcs_sw) == sum(pg[g] for g in bus_gens)  - sum(pd[d] for d in bus_loads) - sum(gs[s] for s in bus_shunts)*w)
+    cstr_q = JuMP.@constraint(pm.model, sum(q[a] for a in bus_arcs) + sum(qsw[sw] for sw in bus_arcs_sw) == sum(qg[g] for g in bus_gens)  - sum(qd[d] for d in bus_loads) + sum(bs[s] for s in bus_shunts)*w)
+
+    if _IM.report_duals(pm)
+        _PM.sol(pm, n, :bus, i)[:lam_kcl_r] = cstr_p
+        _PM.sol(pm, n, :bus, i)[:lam_kcl_i] = cstr_q
+    end
+end
+
 ######################################## BUSBAR SPLITTING CONSTRAINTS #####################################
 
 function constraint_switch_voltage_on_off(pm::_PM.AbstractWRModels, n::Int, i, f_bus, t_bus)
@@ -126,74 +144,5 @@ function constraint_dc_switch_voltage_on_off_big_M(pm::_PM.AbstractWRModels, n::
     JuMP.@constraint(pm.model,  - (1-z)*M_vm <= wdc_to - wdc_fr)
 end
 
-function constraint_aux_switches(pm::_PM.AbstractWRModels, n::Int, i_1)
-    aux_vm = _PM.var(pm, n, :aux_switch_w, i_1)
-    aux_diff_vm = _PM.var(pm, n, :delta_switch_w, i_1)
-    z_ZIL = _PM.var(pm, n, :z_switch, i_1)
 
-    JuMP.@constraint(pm.model, aux_vm == z_ZIL*aux_diff_vm)
-end
 
-function constraint_aux_differences(pm::_PM.AbstractWRModels, n::Int, i_1, bus_1, bus_2)
-    aux_diff_vm = _PM.var(pm, n, :delta_switch_w, i_1)
-    vm_1 = _PM.var(pm, n, :w, bus_1)
-    vm_2 = _PM.var(pm, n, :w, bus_2)
-
-    JuMP.@constraint(pm.model, aux_diff_vm == vm_1 - vm_2)
-end
-
-function constraint_1_aux_voltage_angles(pm::_PM.AbstractWRModels, n::Int, i_1, delta_min, delta_max)
-end
-
-function constraint_2_aux_voltage_angles(pm::_PM.AbstractWRModels, n::Int, i_1, delta_min, delta_max)
-end
-
-function constraint_1_aux_voltage_magnitudes(pm::_PM.AbstractWRModels, n::Int, i_1, delta_min, delta_max)
-    aux_vm = _PM.var(pm, n, :aux_switch_w, i_1)
-    z_ZIL = _PM.var(pm, n, :z_switch, i_1)
-    
-    JuMP.@constraint(pm.model, aux_vm <= z_ZIL*delta_max)
-    JuMP.@constraint(pm.model, z_ZIL*delta_min <= aux_vm)
-end
-
-function constraint_2_aux_voltage_magnitudes(pm::_PM.AbstractWRModels, n::Int, i_1, delta_min, delta_max)
-    aux_vm = _PM.var(pm, n, :aux_switch_w, i_1)
-    aux_diff_vm = _PM.var(pm, n, :delta_switch_w, i_1)
-    z_ZIL = _PM.var(pm, n, :z_switch, i_1)
-    
-    JuMP.@constraint(pm.model, - delta_max*(1-z_ZIL) <= aux_vm - aux_diff_vm)
-    JuMP.@constraint(pm.model, aux_vm - aux_diff_vm <= - delta_min*(1-z_ZIL))
-end
-
-function constraint_aux_dcswitches(pm::_PM.AbstractWRModels, n::Int, i_1)
-    aux_vm = _PM.var(pm, n, :aux_dcswitch_w, i_1)
-    aux_diff_vm = _PM.var(pm, n, :delta_dcswitch_w, i_1)
-    z_ZIL = _PM.var(pm, n, :z_dcswitch, i_1)
-
-    JuMP.@constraint(pm.model, aux_vm == z_ZIL*aux_diff_vm)
-end
-
-function constraint_aux_dcdifferences(pm::_PM.AbstractWRModels, n::Int, i_1, bus_1, bus_2)
-    aux_diff_vm = _PM.var(pm, n, :delta_dcswitch_w, i_1)
-    vm_1 = _PM.var(pm, n, :wdc, bus_1)
-    vm_2 = _PM.var(pm, n, :wdc, bus_2)
-
-    JuMP.@constraint(pm.model, aux_diff_vm == vm_1 - vm_2)
-end
-
-function constraint_1_aux_voltage_dc_magnitudes(pm::_PM.AbstractWRModels, n::Int, i_1, delta_min, delta_max)
-    aux_vm = _PM.var(pm, n, :aux_dcswitch_w, i_1)
-    z_ZIL = _PM.var(pm, n, :z_dcswitch, i_1)
-    
-    JuMP.@constraint(pm.model, aux_vm <= z_ZIL*delta_max)
-    JuMP.@constraint(pm.model, z_ZIL*delta_min <= aux_vm)
-end
-
-function constraint_2_aux_voltage_dc_magnitudes(pm::_PM.AbstractWRModels, n::Int, i_1, delta_min, delta_max)
-    aux_vm = _PM.var(pm, n, :aux_dcswitch_w, i_1)
-    aux_diff_vm = _PM.var(pm, n, :delta_dcswitch_w, i_1)
-    z_ZIL = _PM.var(pm, n, :z_dcswitch, i_1)
-    
-    JuMP.@constraint(pm.model, - delta_max*(1-z_ZIL) <= aux_vm - aux_diff_vm)
-    JuMP.@constraint(pm.model, aux_vm - aux_diff_vm <= - delta_min*(1-z_ZIL))
-end

@@ -236,23 +236,35 @@ function constraint_exclusivity_dc_switch_no_OTS(pm::_PM.AbstractPowerModel, n::
     JuMP.@constraint(pm.model, z_1 + z_2 == 1.0)
 end
 
-function constraint_BS_OTS_branch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2, pf, pt, qf, qt ,sw,aux)
+function constraint_BS_OTS_branch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2)
     z_1 = _PM.var(pm, n, :z_switch, i_1)
     z_2 = _PM.var(pm, n, :z_switch, i_2)
-    pf_ = _PM.var(pm, n, :p, pf)
-    pt_ = _PM.var(pm, n, :p, pt)
-    qf_ = _PM.var(pm, n, :q, qf)
-    qt_ = _PM.var(pm, n, :q, qt)
+    branch_dict = _PM.ref(pm, n, :branch)
+    f_sw = _PM.ref(pm, n, :switch, i_1)
+    t_sw = _PM.ref(pm, n, :switch, i_2)
+    aux = f_sw["auxiliary"]
+    orig = f_sw["original"]
+    
+    if aux == "branch"
+        pf = (branch_dict[orig]["index"],branch_dict[orig]["f_bus"],branch_dict[orig]["t_bus"])
+        pt = (branch_dict[orig]["index"],branch_dict[orig]["t_bus"],branch_dict[orig]["f_bus"])
+        qf = (branch_dict[orig]["index"],branch_dict[orig]["f_bus"],branch_dict[orig]["t_bus"])
+        qt = (branch_dict[orig]["index"],branch_dict[orig]["t_bus"],branch_dict[orig]["f_bus"])
 
-    JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*10)
-    JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*10)
-    JuMP.@constraint(pm.model, qf_ <= (z_1+z_2)*10)
-    JuMP.@constraint(pm.model, qt_ <= (z_1+z_2)*10)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pf_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pt_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= qf_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= qt_)
+        pf_ = _PM.var(pm, n, :p, pf)
+        pt_ = _PM.var(pm, n, :p, pt)
+        qf_ = _PM.var(pm, n, :q, qf)
+        qt_ = _PM.var(pm, n, :q, qt)
 
+        JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*10)
+        JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*10)
+        JuMP.@constraint(pm.model, qf_ <= (z_1+z_2)*10)
+        JuMP.@constraint(pm.model, qt_ <= (z_1+z_2)*10)
+        JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pf_)
+        JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pt_)
+        JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= qf_)
+        JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= qt_)
+    end
 end
 
 function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2, pf, pt, qf, qt ,sw,aux)
