@@ -795,3 +795,243 @@ function AC_busbar_split_AC_grid(data,bus_to_be_split)
     data["switch_couples"] = deepcopy(switch_couples)
     return data, switch_couples, extremes_ZIL
 end
+
+function prepare_AC_feasibility_check(result_dict, input_dict, input_ac_check, switch_couples, extremes_dict)
+    orig_buses = maximum(parse.(Int, keys(input_dict["bus"])))
+    for (sw_id,sw) in input_ac_check["switch"]
+        if !haskey(sw,"auxiliary")
+            println("Starting from ZIL $sw_id, split bus $(sw["t_bus"]), connecting buses $(sw["t_bus"]) and $(sw["f_bus"])")
+            println("----------------------------")
+            if result_dict["solution"]["switch"][sw_id]["status"] >= 0.9 # RECONNECT EVERYTHING
+                println("Switch $sw_id is closed, Connecting everything back, no busbar splitting on bus $(sw["bus_split"])")
+                println("----------------------------")
+                for l in keys(switch_couples)
+                    println("Starting with switch couples")
+                    println("----------------------------")
+                    if switch_couples[l]["bus_split"] == sw["bus_split"]
+                        println("SWITCH COUPLE IS $l, f_sw $(switch_couples[l]["f_sw"]), t_sw $(switch_couples[l]["t_sw"])")
+                        println("Starting from switch $(switch_couples[l]["f_sw"]), with t_bus $(input_ac_check["switch"]["$(switch_couples[l]["f_sw"])"]["t_bus"])")
+                        println("Then switch $(switch_couples[l]["t_sw"]), with t_bus $(input_ac_check["switch"]["$(switch_couples[l]["t_sw"])"]["t_bus"])")
+                        println("----------------------------")
+                        if input_ac_check["switch"]["$(switch_couples[l]["f_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                            println("WE GO WITH SWITCH $(switch_couples[l]["f_sw"])")
+                            println("----------------------------")
+                            aux =  deepcopy(input_ac_check["switch"]["$(switch_couples[l]["f_sw"])"]["auxiliary"])
+                            orig = deepcopy(input_ac_check["switch"]["$(switch_couples[l]["f_sw"])"]["original"])
+                            println("Auxiliary is $aux")
+                            println("Original is $orig")
+                            if aux == "gen"
+                                input_ac_check["gen"]["$(orig)"]["gen_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "load"
+                                input_ac_check["load"]["$(orig)"]["load_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "convdc"
+                                input_ac_check["convdc"]["$(orig)"]["busac_i"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "branch"                
+                                if input_ac_check["branch"]["$(orig)"]["f_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["f_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                                    input_ac_check["branch"]["$(orig)"]["f_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                                elseif input_ac_check["branch"]["$(orig)"]["t_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["f_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                                    input_ac_check["branch"]["$(orig)"]["t_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                                end
+                            end
+                            println("----------------------------")
+                        elseif input_ac_check["switch"]["$(switch_couples[l]["t_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                            println("WE GO WITH SWITCH $(switch_couples[l]["t_sw"])")
+                            println("----------------------------")
+                            aux =  deepcopy(input_ac_check["switch"]["$(switch_couples[l]["t_sw"])"]["auxiliary"])
+                            orig = deepcopy(input_ac_check["switch"]["$(switch_couples[l]["t_sw"])"]["original"])
+                            println("Auxiliary is $aux")
+                            println("Original is $orig")
+                            if aux == "gen"
+                                input_ac_check["gen"]["$(orig)"]["gen_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "load"
+                                input_ac_check["load"]["$(orig)"]["load_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "convdc"
+                                input_ac_check["convdc"]["$(orig)"]["busac_i"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "branch"                
+                                if input_ac_check["branch"]["$(orig)"]["f_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                                    input_ac_check["branch"]["$(orig)"]["f_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                                elseif input_ac_check["branch"]["$(orig)"]["t_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                                    input_ac_check["branch"]["$(orig)"]["t_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                                end
+                            end
+                        end
+                    end
+                end
+            elseif result_dict["solution"]["switch"][sw_id]["status"] <= 0.1
+                println("Switch $sw_id is open, busbar splitting on bus $(sw["bus_split"])")
+                delete!(input_ac_check["switch"],sw_id)
+                for l in keys(switch_couples)
+                    if switch_couples[l]["bus_split"] == sw["bus_split"]
+                        println("SWITCH COUPLE IS $l, f_sw $(switch_couples[l]["f_sw"]), t_sw $(switch_couples[l]["t_sw"])")
+                        println("Starting from switch $(switch_couples[l]["f_sw"]), with t_bus $(input_ac_check["switch"]["$(switch_couples[l]["f_sw"])"]["t_bus"])")
+                        println("Then switch $(switch_couples[l]["t_sw"]), with t_bus $(input_ac_check["switch"]["$(switch_couples[l]["t_sw"])"]["t_bus"])")
+                        println("----------------------------")
+                        if result_dict["solution"]["switch"]["$(switch_couples["$l"]["switch_split"])"]["status"] >= 0.9
+                            println("WE GO WITH SWITCH $(switch_couples[l]["f_sw"])")
+                            println("----------------------------")
+                            aux =  deepcopy(input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["auxiliary"])
+                            orig = deepcopy(input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["original"])
+                            println("Auxiliary is $aux")
+                            println("Original is $orig")
+                            if aux == "gen"
+                                input_ac_check["gen"]["$(orig)"]["gen_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "load"
+                                input_ac_check["load"]["$(orig)"]["load_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "convdc"
+                                input_ac_check["convdc"]["$(orig)"]["busac_i"] = deepcopy(switch_couples[l]["bus_split"])
+                            elseif aux == "branch"                
+                                if input_ac_check["branch"]["$(orig)"]["f_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                                    input_ac_check["branch"]["$(orig)"]["f_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                                elseif input_ac_check["branch"]["$(orig)"]["t_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["t_bus"] == switch_couples[l]["bus_split"]
+                                    input_ac_check["branch"]["$(orig)"]["t_bus"] = deepcopy(switch_couples[l]["bus_split"])
+                                end
+                            end
+                        elseif result_dict["solution"]["switch"]["$(switch_couples["$l"]["switch_split"])"]["status"] <= 0.1
+                            switch_t = deepcopy(input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]) 
+                            println("WE GO WITH SWITCH $(switch_couples[l]["f_sw"])")
+                            aux_t = switch_t["auxiliary"]
+                            orig_t = switch_t["original"]
+                            println("Auxiliary is $aux_t")
+                            println("Original is $orig_t")
+                            if result_dict["solution"]["switch"]["$(switch_t["index"])"]["status"] <= 0.1
+                                delete!(input_ac_check["switch"],"$(switch_t["index"])")
+                            elseif result_dict["solution"]["switch"]["$(switch_t["index"])"]["status"] >= 0.9
+                                if aux_t == "gen"
+                                    input_ac_check["gen"]["$(orig_t)"]["gen_bus"] = deepcopy(input_ac_check["switch"]["$(switch_t["index"])"]["t_bus"]) # here it needs to be the bus of the switch
+                                    print([l,aux_t,orig_t,input_ac_check["gen"]["$(orig_t)"]["gen_bus"]],"\n")
+                                elseif aux_t == "load"
+                                    input_ac_check["load"]["$(orig_t)"]["load_bus"] = deepcopy(input_ac_check["switch"]["$(switch_t["index"])"]["t_bus"])
+                                    print([l,aux_t,orig_t,input_ac_check["load"]["$(orig_t)"]["load_bus"]],"\n")
+                                elseif aux_t == "convdc"
+                                    input_ac_check["convdc"]["$(orig_t)"]["busac_i"] = deepcopy(input_ac_check["switch"]["$(switch_t["index"])"]["t_bus"])
+                                    print([l,aux_t,orig_t,input_ac_check["convdc"]["$(orig_t)"]["busac_i"]],"\n")
+                                elseif aux_t == "branch" 
+                                    if input_ac_check["branch"]["$(orig_t)"]["f_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["bus_split"] == switch_couples[l]["bus_split"]
+                                        input_ac_check["branch"]["$(orig_t)"]["f_bus"] = deepcopy(input_ac_check["switch"]["$(switch_t["index"])"]["t_bus"])
+                                        print([l,aux_t,orig_t,input_ac_check["branch"]["$(orig_t)"]["f_bus"]],"\n")
+                                    elseif input_ac_check["branch"]["$(orig_t)"]["t_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["t_sw"])"]["bus_split"] == switch_couples[l]["bus_split"]
+                                        input_ac_check["branch"]["$(orig_t)"]["t_bus"] = deepcopy(input_ac_check["switch"]["$(switch_t["index"])"]["t_bus"])
+                                        print([l,aux_t,orig_t,input_ac_check["branch"]["$(orig_t)"]["t_bus"]],"\n")
+                                    end
+                                end
+                            end
+                        
+                            switch_f = deepcopy(input_ac_check["switch"]["$(switch_couples["$l"]["f_sw"])"]) 
+                            aux_f = switch_f["auxiliary"]
+                            orig_f = switch_f["original"]
+                            println("Auxiliary is $aux_f")
+                            println("Original is $orig_f")
+                            if result_dict["solution"]["switch"]["$(switch_f["index"])"]["status"] <= 0.1
+                                delete!(input_ac_check["switch"],"$(switch_t["index"])")
+                            else
+                                if aux_f == "gen"
+                                    input_ac_check["gen"]["$(orig_f)"]["gen_bus"] = deepcopy(input_ac_check["switch"]["$(switch_f["index"])"]["t_bus"])
+                                    print([l,aux_t,orig_t,input_ac_check["gen"]["$(orig_f)"]["gen_bus"]],"\n")
+                                elseif aux_f == "load"
+                                    input_ac_check["load"]["$(orig_f)"]["load_bus"] = deepcopy(input_ac_check["switch"]["$(switch_f["index"])"]["t_bus"])
+                                    print([l,aux_t,orig_t,input_ac_check["load"]["$(orig_f)"]["load_bus"]],"\n")
+                                elseif aux_f == "convdc"
+                                    input_ac_check["convdc"]["$(orig_f)"]["busac_i"] = deepcopy(input_ac_check["switch"]["$(switch_f["index"])"]["t_bus"])
+                                    print([l,aux_t,orig_t,input_ac_check["convdc"]["$(orig_f)"]["busac_i"]],"\n")
+                                elseif aux_f == "branch"
+                                    if input_ac_check["branch"]["$(orig_f)"]["f_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["f_sw"])"]["bus_split"] == switch_couples[l]["bus_split"]
+                                        input_ac_check["branch"]["$(orig_f)"]["f_bus"] = deepcopy(input_ac_check["switch"]["$(switch_f["index"])"]["t_bus"])
+                                        print([l,aux_t,orig_t,input_ac_check["branch"]["$(orig_f)"]["f_bus"]],"\n")
+                                    elseif input_ac_check["branch"]["$(orig_f)"]["t_bus"] > orig_buses && input_ac_check["switch"]["$(switch_couples["$l"]["f_sw"])"]["bus_split"] == switch_couples[l]["bus_split"]
+                                        input_ac_check["branch"]["$(orig_f)"]["t_bus"] = deepcopy(input_ac_check["switch"]["$(switch_f["index"])"]["t_bus"])
+                                        print([l,aux_t,orig_t,input_ac_check["branch"]["$(orig_f)"]["t_bus"]],"\n")
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function prepare_starting_value_dict(result,grid)
+    for (b_id,b) in grid["bus"]
+        if haskey(result["solution"]["bus"],b_id)
+            if abs(result["solution"]["bus"]["$b_id"]["va"]) < 10^(-4)
+                b["va_starting_value"] = 0.0
+            else
+                b["va_starting_value"] = result["solution"]["bus"]["$b_id"]["va"]
+            end
+            if abs(result["solution"]["bus"]["$b_id"]["vm"]) < 10^(-4)
+                b["vm_starting_value"] = 0.0
+            else
+                b["vm_starting_value"] = result["solution"]["bus"]["$b_id"]["vm"]
+            end
+        else
+            b["va_starting_value"] = 0.0
+            b["vm_starting_value"] = 1.0
+        end
+    end
+    for (b_id,b) in grid["gen"]
+        if abs(result["solution"]["gen"]["$b_id"]["pg"]) < 10^(-5)
+            b["pg_starting_value"] = 0.0
+        else
+            b["pg_starting_value"] = result["solution"]["gen"]["$b_id"]["pg"]
+        end
+        if abs(result["solution"]["gen"]["$b_id"]["qg"]) < 10^(-5)
+            b["qg_starting_value"] = 0.0
+        else
+            b["qg_starting_value"] = result["solution"]["gen"]["$b_id"]["qg"]
+        end
+    end
+    for (sw_id,sw) in grid["switch"]
+        if !haskey(sw,"auxiliary") # calling ZILs
+            sw["starting_value"] = 1.0
+        else
+            if haskey(grid["switch_couples"],sw_id)
+                grid["switch"]["$(grid["switch_couples"][sw_id]["f_sw"])"]["starting_value"] = 0.0
+                grid["switch"]["$(grid["switch_couples"][sw_id]["t_sw"])"]["starting_value"] = 1.0
+            end
+            #sw["starting_value"] = 0.0
+        end
+    end
+end
+
+function prepare_starting_value_dict_lpac(result,grid)
+    for (b_id,b) in grid["bus"]
+        if haskey(result["solution"]["bus"],b_id)
+            if abs(result["solution"]["bus"]["$b_id"]["va"]) < 10^(-4)
+                b["va_starting_value"] = 0.0
+            else
+                b["va_starting_value"] = result["solution"]["bus"]["$b_id"]["va"]
+            end
+            if abs(result["solution"]["bus"]["$b_id"]["phi"]) < 10^(-4)
+                b["phi_starting_value"] = 0.0
+            else
+                b["phi_starting_value"] = result["solution"]["bus"]["$b_id"]["phi"]
+            end
+        else
+            b["va_starting_value"] = 0.0
+            b["phi_starting_value"] = 0.1
+        end
+    end
+    for (b_id,b) in grid["gen"]
+        if abs(result["solution"]["gen"]["$b_id"]["pg"]) < 10^(-5)
+            b["pg_starting_value"] = 0.0
+        else
+            b["pg_starting_value"] = result["solution"]["gen"]["$b_id"]["pg"]
+        end
+        if abs(result["solution"]["gen"]["$b_id"]["qg"]) < 10^(-5)
+            b["qg_starting_value"] = 0.0
+        else
+            b["qg_starting_value"] = result["solution"]["gen"]["$b_id"]["qg"]
+        end
+    end
+    for (sw_id,sw) in grid["switch"]
+        if !haskey(sw,"auxiliary") # calling ZILs
+            sw["starting_value"] = 1.0
+        else
+            if haskey(grid["switch_couples"],sw_id)
+                grid["switch"]["$(grid["switch_couples"][sw_id]["f_sw"])"]["starting_value"] = 0.0
+                grid["switch"]["$(grid["switch_couples"][sw_id]["t_sw"])"]["starting_value"] = 1.0
+            end
+        end
+    end
+end

@@ -103,8 +103,8 @@ function build_acdcsw_AC_big_M_ZIL_sp(pm::_PM.AbstractPowerModel)
     _PMACDC.variable_dcgrid_voltage_magnitude(pm)
 
     # Objective function
-    _PM.objective_min_fuel_cost(pm)
-
+    #_PM.objective_min_fuel_cost(pm)
+    objective_min_fuel_cost_ac_switch(pm)
 
     # Constraints
     _PM.constraint_model_voltage(pm)
