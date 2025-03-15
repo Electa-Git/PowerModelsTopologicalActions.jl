@@ -461,49 +461,6 @@ function DC_busbar_split_more_buses(data,bus_to_be_split)
     return data, dcswitch_couples, extremes_ZIL_dc
 end
 
-function prepare_starting_value_dict(result,grid)
-    for (b_id,b) in grid["bus"]
-        if haskey(result["solution"]["bus"],b_id)
-            if abs(result["solution"]["bus"]["$b_id"]["va"]) < 10^(-4)
-                b["va_starting_value"] = 0.0
-            else
-                b["va_starting_value"] = result["solution"]["bus"]["$b_id"]["va"]
-            end
-            if abs(result["solution"]["bus"]["$b_id"]["vm"]) < 10^(-4)
-                b["vm_starting_value"] = 0.0
-            else
-                b["vm_starting_value"] = result["solution"]["bus"]["$b_id"]["vm"]
-            end
-        else
-            b["va_starting_value"] = 0.0
-            b["vm_starting_value"] = 1.0
-        end
-    end
-    for (b_id,b) in grid["gen"]
-        if abs(result["solution"]["gen"]["$b_id"]["pg"]) < 10^(-5)
-            b["pg_starting_value"] = 0.0
-        else
-            b["pg_starting_value"] = result["solution"]["gen"]["$b_id"]["pg"]
-        end
-        if abs(result["solution"]["gen"]["$b_id"]["qg"]) < 10^(-5)
-            b["qg_starting_value"] = 0.0
-        else
-            b["qg_starting_value"] = result["solution"]["gen"]["$b_id"]["qg"]
-        end
-    end
-    for (sw_id,sw) in grid["switch"]
-        if !haskey(sw,"auxiliary") # calling ZILs
-            sw["starting_value"] = 1.0
-        else
-            if haskey(grid["switch_couples"],sw_id)
-                grid["switch"]["$(grid["switch_couples"][sw_id]["f_sw"])"]["starting_value"] = 0.0
-                grid["switch"]["$(grid["switch_couples"][sw_id]["t_sw"])"]["starting_value"] = 1.0
-            end
-            #sw["starting_value"] = 0.0
-        end
-    end
-end
-
 function compute_couples_of_switches(data)
     switch_couples = Dict{String,Any}() # creating a dictionary to check the couples of switches linking each grid element to both parts of the split busbar
     for (sw_id,sw) in data["switch"]
