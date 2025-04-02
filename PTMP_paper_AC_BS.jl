@@ -11,7 +11,9 @@ using HSL_jll
 ## Define solvers ##
 #######################################################################################
 
-gurobi = JuMP.optimizer_with_attributes(Gurobi.Optimizer,"MIPGap" => 1e-4)#,"QCPDual" => 1)
+gurobi_opf = JuMP.optimizer_with_attributes(Gurobi.Optimizer,"MIPGap" => 1e-5)#,"QCPDual" => 1)
+gurobi = JuMP.optimizer_with_attributes(Gurobi.Optimizer,"MIPGap" => 1e-4,"QCPDual" => 1,"BarHomogeneous" => -1)#,"time_limit" => 300)
+
 ipopt = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-6, "print_level" => 0,"linear_solver" => "ma97")
 juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer, "nl_solver" => ipopt, "mip_solver" => gurobi, "time_limit" => 36000)
 
@@ -21,64 +23,39 @@ juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer, "nl_solver" => ipopt
 s_dual = Dict("output" => Dict("branch_flows" => true,"duals" => true), "conv_losses_mp" => true)
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
-test_case_5_acdc = "case5_acdc.m"
+test_case_5_acdc = "case3120sp_mcdc.m"
 data_file_5_acdc = joinpath(@__DIR__,"data_sources",test_case_5_acdc)
 
 data_5_acdc = _PM.parse_file(data_file_5_acdc)
 _PMACDC.process_additional_data!(data_5_acdc)
 
+
+
+for (b_id,b) in data_5_acdc["bus"]
+    b["vmin"] = 0.9
+    b["vmax"] = 1.1
+end
 #######################################################################################
 ## Optimal Power Flow models ##
 #######################################################################################
 # OPF simulations
-result_opf_ac = _PMACDC.run_acdcopf(data_5_acdc,ACPPowerModel,ipopt; setting = s)
-result_opf_lpac = _PMACDC.run_acdcopf(data_5_acdc,LPACCPowerModel,gurobi; setting = s)
+result_opf_ac = _PMACDC.run_acdcopf(data_5_acdc,ACPPowerModel,ipopt; setting = s_dual)
+result_opf_lpac = _PMACDC.run_acdcopf(data_5_acdc,LPACCPowerModel,gurobi_opf; setting = s)
 
+duals = []
+for (b_id,b) in data_5_acdc["bus"]
+    println([b_id,result_opf_ac["solution"]["bus"]["$b_id"]["lam_kcl_r"]])
+    push!(duals,[b_id,result_opf_ac["solution"]["bus"]["$b_id"]["lam_kcl_r"]])
+end
+sort(duals, by = x -> x[2])
 
-#######################################################################################
-## Busbar splitting models ##
-#######################################################################################
-###### AC Busbar splitting models ######
-# AC BS for AC/DC grid with AC switches state as decision variable. Creating deepcopies of the original dictionary as the grid topology is modified with busbar splitting
-data_busbars_ac_split_5_acdc = deepcopy(data_5_acdc)
-data_busbars_ac_split_5_acdc_plus = deepcopy(data_5_acdc)
+for (b_id,b) in data_5_acdc["branch"]
+    println([b_id,abs(result_opf_lpac["solution"]["bus"]["$(b["f_bus"])"]["lam_kcl_r"]-result_opf_lpac["solution"]["bus"]["$(b["t_bus"])"]["lam_kcl_r"])])
+end
 
-data_busbars_ac_split_5_acdc_more_buses = deepcopy(data_5_acdc)
-
-# Selecting which busbars are split
-splitted_bus_ac = [1,2,3,4,5]
-#splitted_bus_ac = 2
-#splitted_bus_ac_more_buses = [2,4]
-
-splitted_bus_dc = 2
-
-
-data_busbars_ac_split_5_acdc,  switches_couples_ac_5,  extremes_ZILs_5_ac  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc,splitted_bus_ac)
-data_busbars_ac_split_5_acdc_plus,  switches_couples_ac_5_plus,  extremes_ZILs_5_ac_plus  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc_plus,splitted_bus_ac)
-
-#data_busbars_ac_split_5_acdc_more_buses,  switches_couples_ac_5_more_buses,  extremes_ZILs_5_ac_more_buses  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc_more_buses,splitted_bus_ac_more_buses)
-#data_busbars_ac_split_5_acdc,  switches_couples_dc_5,  extremes_ZILs_5_dc  = _PMTP.DC_busbar_split_more_buses(data_busbars_ac_split_5_acdc,splitted_bus_dc)
-
-
-
-# Duplicating the network data
-ac_bs_ac_ref = deepcopy(data_busbars_ac_split_5_acdc)
-ac_bs_ac_ref_Line = deepcopy(data_busbars_ac_split_5_acdc)
-
-ac_bs_ac_ref_plus = deepcopy(data_busbars_ac_split_5_acdc_plus)
-ac_bs_ac_ref_Line_plus = deepcopy(data_busbars_ac_split_5_acdc_plus)
-
-ac_bs_lpac_ref = deepcopy(data_busbars_ac_split_5_acdc)
-ac_bs_lpac_ref_Line = deepcopy(data_busbars_ac_split_5_acdc)
-ac_bs_dc_ref = deepcopy(data_busbars_ac_split_5_acdc)
-ac_bs_dc_ref_Line = deepcopy(data_busbars_ac_split_5_acdc)
-
-result_switches_AC_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_ac_ref,ACPPowerModel,juniper)
-result_switches_lpac_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_lpac_ref,LPACCPowerModel,gurobi)
-result_switches_soc_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_ac_ref,SOCWRPowerModel,gurobi)
-result_switches_qc_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_ac_ref,QCRMPowerModel,gurobi)
-
-#result_switches_AC_ac_ref_not_Line  = _PMTP.run_acdcsw_AC_big_M(ac_bs_ac_ref_Line,ACPPowerModel,juniper)
+result_bs = Dict{String,Any}()
+result_bs_ac_check = Dict{String,Any}()
+result_bs_lpac_check = Dict{String,Any}()
 
 function prepare_AC_feasibility_check(result_dict, input_dict, input_ac_check, switch_couples, extremes_dict,input_base)
     orig_buses = maximum(parse.(Int, keys(input_base["bus"]))) # maximum value before splitting (in case the buses are not in numerical order)
@@ -233,10 +210,93 @@ function prepare_AC_feasibility_check(result_dict, input_dict, input_ac_check, s
         end
     end
 end
+
+function split_one_bus_per_time(test_case,results_dict,results_dict_ac_check,results_dict_lpac_check)
+    for (b_id,b) in test_case["bus"]
+        results_dict["$b_id"] = Dict{String,Any}()
+        results_dict_ac_check["$b_id"] = Dict{String,Any}()
+        test_case_bs = deepcopy(test_case)
+        splitted_bus_ac = parse(Int64,b_id)
+        test_case_bs,  switches_couples_ac,  extremes_ZILs_ac  = _PMTP.AC_busbar_split_more_buses(test_case_bs,splitted_bus_ac)
+        test_case_bs["switch"]["1"]["cost"] = 10.0
+        results_dict["$b_id"] = _PMTP.run_acdcsw_AC_big_M(test_case_bs,LPACCPowerModel,gurobi)
+        test_case_bs_check = deepcopy(test_case_bs)
+        test_case_bs_check_auxiliary = deepcopy(test_case_bs)
+        if results_dict["$b_id"]["termination_status"] == JuMP.OPTIMAL
+            prepare_AC_feasibility_check(results_dict["$b_id"],test_case_bs_check_auxiliary,test_case_bs_check,switches_couples_ac,extremes_ZILs_ac,test_case)
+            results_dict_ac_check["$b_id"] = _PMACDC.run_acdcopf(test_case_bs_check,ACPPowerModel,ipopt; setting = s)
+            results_dict_lpac_check["$b_id"] = _PMACDC.run_acdcopf(test_case_bs_check,LPACCPowerModel,gurobi; setting = s)
+        end
+    end
+end
+@time split_one_bus_per_time(data_5_acdc,result_bs,result_bs_ac_check,result_bs_lpac_check)
+
+obj_bs = []
+for (b_id,b) in data_5_acdc["bus"]
+    push!(obj_bs,[b_id,result_bs["$b_id"]["objective"]])
+end
+obj_bs
+sort(obj_bs, by = x -> x[2])
+result_bs["43"]
+
+obj_bs_lpac = []
+for (b_id,b) in data_5_acdc["bus"]
+    if haskey(result_bs_lpac_check["$b_id"],"objective")
+        push!(obj_bs_lpac,[b_id,result_bs_lpac_check["$b_id"]["objective"]])
+    end
+end
+result_bs_lpac_check["43"]
+result_bs_lpac_check["2"]["objective"]/result_opf_lpac["objective"]
+
+obj_bs = []
+for (b_id,b) in data_5_acdc["bus"]
+    if haskey(result_bs_ac_check["$b_id"],"objective")
+        push!(obj_bs,[b_id,result_bs_ac_check["$b_id"]["objective"]])
+    end
+end
+obj_bs
+result_bs_ac_check["43"]
+
+#######################################################################################
+## Busbar splitting models ##
+#######################################################################################
+###### AC Busbar splitting models ######
+# AC BS for AC/DC grid with AC switches state as decision variable. Creating deepcopies of the original dictionary as the grid topology is modified with busbar splitting
+data_busbars_ac_split_5_acdc = deepcopy(data_5_acdc)
+data_busbars_ac_split_5_acdc_plus = deepcopy(data_5_acdc)
+
+data_busbars_ac_split_5_acdc_more_buses = deepcopy(data_5_acdc)
+
+# Selecting which busbars are split
+splitted_bus_ac = 38
+
+data_busbars_ac_split_5_acdc,  switches_couples_ac_5,  extremes_ZILs_5_ac  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc,splitted_bus_ac)
+data_busbars_ac_split_5_acdc_plus,  switches_couples_ac_5_plus,  extremes_ZILs_5_ac_plus  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc_plus,splitted_bus_ac)
+
+# Duplicating the network data
+ac_bs_ac_ref = deepcopy(data_busbars_ac_split_5_acdc)
+ac_bs_ac_ref_Line = deepcopy(data_busbars_ac_split_5_acdc)
+
+ac_bs_ac_ref_plus = deepcopy(data_busbars_ac_split_5_acdc_plus)
+ac_bs_ac_ref_Line_plus = deepcopy(data_busbars_ac_split_5_acdc_plus)
+
+ac_bs_lpac_ref = deepcopy(data_busbars_ac_split_5_acdc)
+ac_bs_lpac_ref_Line = deepcopy(data_busbars_ac_split_5_acdc)
+ac_bs_dc_ref = deepcopy(data_busbars_ac_split_5_acdc)
+ac_bs_dc_ref_Line = deepcopy(data_busbars_ac_split_5_acdc)
+
+result_switches_AC_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_ac_ref,ACPPowerModel,juniper)
+result_switches_lpac_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_lpac_ref,LPACCPowerModel,gurobi_opf)
+result_switches_soc_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_ac_ref,SOCWRPowerModel,gurobi)
+result_switches_qc_ac_ref  = _PMTP.run_acdcsw_AC_big_M_ZIL(ac_bs_ac_ref,QCRMPowerModel,gurobi)
+
+#result_switches_AC_ac_ref_not_Line  = _PMTP.run_acdcsw_AC_big_M(ac_bs_ac_ref_Line,ACPPowerModel,juniper)
+
+
 # Run models
 # Feasibility check for the AC busbar splitting
 feasibility_check_AC_BS_opf_ac_ref_status = deepcopy(data_busbars_ac_split_5_acdc)
-prepare_AC_feasibility_check(result_switches_AC_ac_ref,data_busbars_ac_split_5_acdc,feasibility_check_AC_BS_opf_ac_ref_status,switches_couples_ac_5,extremes_ZILs_5_ac,data_5_acdc)
+prepare_AC_feasibility_check(result_switches_lpac_ac_ref,data_busbars_ac_split_5_acdc,feasibility_check_AC_BS_opf_ac_ref_status,switches_couples_ac_5,extremes_ZILs_5_ac,data_5_acdc)
 result_feasibility_check = _PMACDC.run_acdcopf(feasibility_check_AC_BS_opf_ac_ref_status,ACPPowerModel,ipopt; setting = s)
 
 feasibility_check_AC_BS_opf_lpac_ref_status = deepcopy(data_busbars_ac_split_5_acdc)

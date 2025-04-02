@@ -155,9 +155,8 @@ for i in random_indices
 end
 display(p1)
 
-Gaussian_samples["2"]["x"]
-Gaussian_samples["2"]["pdf"]
-Gaussian_samples["2"]["samples"]
-
-
-Gaussian_samples["1"]
+################################################################################
+# Process load data
+Load_2024_file = joinpath(folder_data,"Elia_load_2024.json")
+Load_2024 = JSON.parsefile(Load_2024_file)
+Load_2024[1]

@@ -482,6 +482,16 @@ function compute_couples_of_switches(data)
     return switch_couples
 end
 
+function eliminate_duplicates_couple_of_switches(switch_couples)
+    for (sw_id,sw) in switch_couples
+        for l in eachindex(switch_couples)
+            if sw["f_sw"] == switch_couples[l]["t_sw"] && sw["t_sw"] == switch_couples[l]["f_sw"]
+                delete!(switch_couples,l)
+            end
+        end
+    end
+end
+
 function compute_couples_of_switches_feas_check(data)
     switch_couples = Dict{String,Any}() # creating a dictionary to check the couples of switches linking each grid element to both parts of the split busbar
     for (sw_id,sw) in data["switch"]
@@ -500,16 +510,6 @@ function compute_couples_of_switches_feas_check(data)
         end
     end 
     return switch_couples
-end
-
-function eliminate_duplicates_couple_of_switches(switch_couples)
-    for (sw_id,sw) in switch_couples
-        for l in eachindex(switch_couples)
-            if sw["f_sw"] == switch_couples[l]["t_sw"] && sw["t_sw"] == switch_couples[l]["f_sw"]
-                delete!(switch_couples,l)
-            end
-        end
-    end
 end
 
 function compute_couples_of_dcswitches(data)

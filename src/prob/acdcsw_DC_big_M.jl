@@ -45,18 +45,14 @@ function build_acdcsw_DC_big_M(pm::_PM.AbstractPowerModel)
 
     for i in _PM.ids(pm, :dcswitch)
         constraint_dc_switch_thermal_limit(pm, i) # limiting the apparent power flowing through a dc switch
-        #constraint_dc_switch_voltage_on_off(pm,i) # making sure that the voltage magnituds are equal at the two extremes of a closed switch
         constraint_dc_switch_power_on_off(pm,i)  # limiting the maximum active power through a dc switch
-        #constraint_aux_dcswitches(pm, i)
-        #constraint_aux_dcdifferences(pm, i)
-        #constraint_1_aux_voltage_dc_magnitudes(pm, i)
-        #constraint_2_aux_voltage_dc_magnitudes(pm, i)
         constraint_dc_switch_voltage_on_off_big_M(pm, i)
     end
 
     for i in _PM.ids(pm, :dcswitch_couples)
         constraint_exclusivity_dc_switch(pm, i) # the sum of the switches in a couple must be lower or equal than one (if OTS is allowed, like here), as each grid element is connected to either part of a split busbar no matter if the ZIL switch is opened or closed
         constraint_BS_OTS_dcbranch(pm, i) # making sure that if the grid element is not reconnected to the split busbar, the active and reactive power flowing through the switch is 0
+        constraint_ZIL_dc_switch(pm,i)
     end
 
     for i in _PM.ids(pm, :branch)
@@ -134,12 +130,7 @@ function build_acdcsw_DC_big_M_ZIL(pm::_PM.AbstractPowerModel)
 
     for i in _PM.ids(pm, :dcswitch)
         constraint_dc_switch_thermal_limit(pm, i) # limiting the apparent power flowing through a dc switch
-        #constraint_dc_switch_voltage_on_off(pm,i) # making sure that the voltage magnituds are equal at the two extremes of a closed switch
         constraint_dc_switch_power_on_off(pm,i)  # limiting the maximum active power through a dc switch
-        #constraint_aux_dcswitches(pm, i)
-        #constraint_aux_dcdifferences(pm, i)
-        #constraint_1_aux_voltage_dc_magnitudes(pm, i)
-        #constraint_2_aux_voltage_dc_magnitudes(pm, i)
         constraint_dc_switch_voltage_on_off_big_M(pm, i)
     end
 
