@@ -563,7 +563,7 @@ function AC_busbar_split_AC_grid(data,bus_to_be_split)
 
     # Adding a new bus to represent the split, basing on "split" == true indicated before
     n_buses_original = maximum([bus["index"] for (b, bus) in data["bus"]]) 
-    min_bus_original = minimum([bus["index"] for (b, bus) in data["bus"]]) 
+    max_bus_original = minimum([bus["index"] for (b, bus) in data["bus"]]) 
     count_ = 0
     for (b_id,b) in data["bus"] 
         if b["split"] == true && parse(Int64,b_id) <= n_buses_original # make sure we include only the original buses

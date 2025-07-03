@@ -3,9 +3,9 @@ function objective_min_fuel_cost_ac_switch(pm::_PM.AbstractPowerModel)
     cost = JuMP.AffExpr(0.0)
 
     JuMP.add_to_expression!(cost, calc_gen_cost(pm))
-    println("COST GEN: is $(cost)")
+    #println("COST GEN: is $(cost)")
     JuMP.add_to_expression!(cost, calc_ac_switch_cost(pm))
-    println("COST SWITCH: is $(cost)")
+    #println("COST SWITCH: is $(cost)")
 
     JuMP.@objective(pm.model, Min, cost)
 end

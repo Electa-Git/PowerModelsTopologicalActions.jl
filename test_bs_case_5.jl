@@ -23,6 +23,25 @@ mosek = JuMP.optimizer_with_attributes(Mosek.Optimizer)
 #######################################################################################
 
 test_case = "case5_acdc.m"
+test_case_ac = "pglib_opf_case30_ieee.m"
+
+data_file_ac = joinpath(@__DIR__,"data_sources",test_case_ac)
+data_original_ac = _PM.parse_file(data_file_ac)
+s = Dict("output" => Dict("branch_flows" => true,"duals" => false), "conv_losses_mp" => true)
+opf_ac = _PM.solve_opf(data_original_ac,ACPPowerModel,ipopt; setting = s)
+opf_ac_lpac = _PM.solve_opf(data_original_ac,LPACCPowerModel,gurobi; setting = s)
+for (b_id,b) in data_original_ac["bus"]
+    b["vm_hot_start"] = opf_ac["solution"]["bus"][b_id]["vm"]
+end
+opf_ac_lpac_h = _PM.solve_opf(data_original_ac,LPACHPowerModel,gurobi; setting = s)
+
+for (b_id,b) in data_original_ac["bus"]
+    println("Bus id $b_id, va is $(opf_ac["solution"]["bus"][b_id]["va"]/(2*pi)*360)")
+end
+
+for (b_id,b) in data_original_ac["branch"]
+    println("Diff over branch $b_id, va is $((opf_ac["solution"]["bus"]["$(b["f_bus"])"]["va"]-opf_ac["solution"]["bus"]["$(b["t_bus"])"]["va"])/(2*pi)*360)")
+end
 
 
 #######################################################################################
