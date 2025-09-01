@@ -1,5 +1,51 @@
 isdefined(Base, :__precompile__) && __precompile__()
 
+"""
+    PowerModelsTopologicalActionsII
+
+A Julia package for modeling AC and DC topological actions in power systems, including 
+Optimal Transmission Switching (OTS) and Busbar Splitting (BS) for steady-state power 
+network optimization.
+
+This package extends PowerModels.jl and PowerModelsACDC.jl to provide comprehensive
+support for both AC and DC grid topological actions, including:
+
+## Core Problem Specifications
+- AC Optimal Transmission Switching (OTS)
+- DC Optimal Transmission Switching (OTS) 
+- AC/DC Optimal Transmission Switching
+- AC Busbar Splitting (BS)
+- DC Busbar Splitting (BS)
+- AC/DC Busbar Splitting
+
+## Mathematical Formulations
+- AC formulations (polar coordinates)
+- SOC Relaxation (W-space)
+- QC Relaxation (W+L-space) 
+- LPAC Approximation (Cold Start)
+- DC approximations
+
+## Key Features
+- Mixed-integer optimization formulations for topological actions
+- Support for hybrid AC/DC power systems
+- Multiple relaxation schemes for computational efficiency
+- Comprehensive constraint and variable libraries
+- Integration with JuMP optimization framework
+
+## Usage
+```julia
+using PowerModelsTopologicalActionsII
+using PowerModels, PowerModelsACDC
+using Ipopt, Juniper
+
+# Load network data
+data = PowerModels.parse_file("case.m")
+PowerModelsACDC.process_additional_data!(data)
+
+# Solve AC OTS problem
+result = run_acdcots_AC(data, ACPPowerModel, optimizer)
+```
+"""
 module PowerModelsTopologicalActionsII
 
 # import Compat

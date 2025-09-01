@@ -4,14 +4,65 @@ export run_acdcsw_AC_big_M_sp
 export run_acdcsw_AC_grid
 export run_acdcsw_AC_grid_sp
 
+"""
+    run_acdcsw_AC(file, model_constructor, optimizer; kwargs...)
 
-# AC Busbar splitting for AC/DC grid
-"ACDC opf with controllable switches in AC busbar splitting configuration for AC/DC grids"
+Solve an AC/DC power system with AC busbar splitting using big-M formulation.
+
+This function implements busbar splitting optimization for the AC portion of hybrid AC/DC 
+power systems. Busbar splitting allows a single bus to be divided into multiple bus 
+sections, with controllable switches determining the connectivity between sections.
+
+Busbar splitting is particularly useful for:
+- Increasing system flexibility and redundancy
+- Reducing short-circuit currents
+- Enabling maintenance without full bus outage
+- Optimizing power flows through bus section management
+
+# Arguments
+- `file`: Path to power system data file or parsed data dictionary
+- `model_constructor`: PowerModels formulation type (e.g., ACPPowerModel)
+- `optimizer`: JuMP-compatible optimization solver (typically mixed-integer)
+- `kwargs...`: Additional keyword arguments
+
+# Returns
+- `result::Dict`: Solution dictionary containing optimal switch positions and power flows
+
+# Example
+```julia
+using PowerModelsTopologicalActionsII, PowerModels, PowerModelsACDC
+using Ipopt, Juniper
+
+# Setup mixed-integer solver
+ipopt = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)  
+juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer, "nl_solver" => ipopt)
+
+# Solve AC busbar splitting problem
+result = run_acdcsw_AC("case_with_switches.m", ACPPowerModel, juniper)
+```
+"""
 function run_acdcsw_AC(file, model_constructor, optimizer; kwargs...)
     return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
-""
+"""
+    build_acdcsw_AC(pm::AbstractPowerModel)
+
+Build the optimization model for AC busbar splitting in AC/DC systems.
+
+This function constructs the mathematical formulation for busbar splitting including:
+- Standard AC bus voltage and generator power variables
+- AC branch power flow variables  
+- Binary switch indicator variables for controllable bus section switches
+- Switch power flow variables (active when switch is closed)
+- DC grid variables (fixed topology)
+- Modified power balance constraints accounting for switch flows
+- Switch operation constraints (big-M formulation)
+- Standard AC/DC power flow constraints
+
+# Arguments
+- `pm::AbstractPowerModel`: PowerModels data structure with busbar splitting data
+"""
 function build_acdcsw_AC(pm::_PM.AbstractPowerModel)
     # AC grid
     _PM.variable_bus_voltage(pm)
