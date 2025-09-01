@@ -1,5 +1,46 @@
 
-## DC OTS -> to be modified if we want to add the OTS on the converter side, needed?
+"""
+AC Power (ACP) formulation constraints for converter systems in optimal transmission switching.
+
+This file implements AC power flow constraints for AC/DC converters when used in 
+optimal transmission switching problems. The ACP formulation uses polar coordinates
+(voltage magnitude and angle) to represent the full nonlinear AC power flow equations.
+"""
+
+"""
+    constraint_conv_transformer_dc_ots(pm::AbstractACPModel, n::Int, i::Int, rtf, xtf, acbus, tm, transformer)
+
+AC power flow constraints for converter transformers with DC switching capability.
+
+Implements the AC power flow equations for the transformer component of AC/DC converters
+when the converter can be switched on/off in optimal transmission switching problems.
+When the converter is off (z_DC = 0), all power flows are forced to zero.
+
+# Arguments
+- `pm::AbstractACPModel`: ACP power model formulation
+- `n::Int`: Network identifier
+- `i::Int`: Converter identifier
+- `rtf`, `xtf`: Transformer resistance and reactance (per unit)
+- `acbus`: AC bus connected to converter
+- `tm`: Transformer tap ratio
+- `transformer`: Boolean indicating if transformer is present
+
+# Variables Used
+- `pconv_tf_fr`, `qconv_tf_fr`: Active/reactive power flow from AC side
+- `pconv_tf_to`, `qconv_tf_to`: Active/reactive power flow to filter side
+- `vm`, `va`: AC bus voltage magnitude and angle
+- `vmf`, `vaf`: Filter bus voltage magnitude and angle
+- `z_conv_dc`: Binary converter status (1=on, 0=off)
+
+# Constraints
+When transformer is present:
+- AC power flow equations with switching logic
+- Power flows forced to zero when z_DC = 0
+
+When no transformer:
+- Direct connection constraints (zero impedance)
+- Equal voltages and zero net power
+"""
 function constraint_conv_transformer_dc_ots(pm::_PM.AbstractACPModel, n::Int, i::Int, rtf, xtf, acbus, tm, transformer)
     ptf_fr = _PM.var(pm, n, :pconv_tf_fr, i)
     qtf_fr = _PM.var(pm, n, :qconv_tf_fr, i)
@@ -27,6 +68,37 @@ function constraint_conv_transformer_dc_ots(pm::_PM.AbstractACPModel, n::Int, i:
     end
 end
 
+"""
+    constraint_converter_losses(pm::AbstractACPModel, n::Int, i::Int, a, b, c, plmax)
+
+Converter loss model for AC/DC converters.
+
+Implements the converter loss characteristic as a quadratic function of the converter
+current. The loss model relates AC-side and DC-side power through converter losses.
+
+# Arguments
+- `pm::AbstractACPModel`: ACP power model formulation
+- `n::Int`: Network identifier
+- `i::Int`: Converter identifier
+- `a`, `b`, `c`: Loss coefficients (constant, linear, quadratic)
+- `plmax`: Maximum converter losses
+
+# Converter Loss Model
+P_ac + P_dc = a + b*I_conv + c*I_conv²
+
+Where:
+- P_ac: AC-side active power (positive = consumed from AC)
+- P_dc: DC-side active power (positive = injected to DC)
+- I_conv: Converter current magnitude
+- a: No-load losses (constant term)
+- b: Linear loss coefficient
+- c: Quadratic loss coefficient
+
+# Notes
+- Losses are always positive (power consumed by converter)
+- Higher currents result in higher losses (quadratic relationship)
+- Model is valid for VSC and LCC converter technologies
+"""
 function constraint_converter_losses(pm::_PM.AbstractACPModel, n::Int, i::Int, a, b, c, plmax)
     pconv_ac = _PM.var(pm, n, :pconv_ac, i)
     pconv_dc = _PM.var(pm, n, :pconv_dc, i)
@@ -35,6 +107,36 @@ function constraint_converter_losses(pm::_PM.AbstractACPModel, n::Int, i::Int, a
     JuMP.@constraint(pm.model, pconv_ac + pconv_dc == a + b*iconv + c*iconv^2)
 end
 
+"""
+    ac_power_flow_constraints_dc_ots(model, g, b, gsh_fr, vm_fr, vm_to, va_fr, va_to, p_fr, p_to, q_fr, q_to, tm, z_DC)
+
+AC power flow equations with DC switching capability.
+
+Implements the full nonlinear AC power flow equations for a transformer or line
+with the ability to be switched on/off via binary variable z_DC. When z_DC = 0,
+all power flows are forced to zero.
+
+# Arguments
+- `model`: JuMP optimization model
+- `g`, `b`: Series conductance and susceptance
+- `gsh_fr`: Shunt conductance at from side
+- `vm_fr`, `vm_to`: Voltage magnitudes at from and to buses
+- `va_fr`, `va_to`: Voltage angles at from and to buses
+- `p_fr`, `p_to`: Active power flows from and to
+- `q_fr`, `q_to`: Reactive power flows from and to
+- `tm`: Transformer tap ratio
+- `z_DC`: Binary switching variable
+
+# Power Flow Equations
+From side:
+- P_fr = z_DC * [g/tm² * V_fr² - g/tm * V_fr * V_to * cos(θ_fr - θ_to) - b/tm * V_fr * V_to * sin(θ_fr - θ_to)]
+- Q_fr = z_DC * [-b/tm² * V_fr² + b/tm * V_fr * V_to * cos(θ_fr - θ_to) - g/tm * V_fr * V_to * sin(θ_fr - θ_to)]
+
+To side (similar with appropriate modifications)
+
+# Returns
+- Tuple of constraint references (c1, c2, c3, c4)
+"""
 function ac_power_flow_constraints_dc_ots(model, g, b, gsh_fr, vm_fr, vm_to, va_fr, va_to, p_fr, p_to, q_fr, q_to, tm, z_DC)
     c1 = JuMP.@constraint(model, p_fr == z_DC*( g/(tm^2)*vm_fr^2 + -g/(tm)*vm_fr*vm_to * cos(va_fr-va_to) + -b/(tm)*vm_fr*vm_to*sin(va_fr-va_to)))
     c2 = JuMP.@constraint(model, q_fr == z_DC*(-b/(tm^2)*vm_fr^2 +  b/(tm)*vm_fr*vm_to * cos(va_fr-va_to) + -g/(tm)*vm_fr*vm_to*sin(va_fr-va_to)))

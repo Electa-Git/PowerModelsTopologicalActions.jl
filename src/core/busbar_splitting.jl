@@ -1,3 +1,45 @@
+"""
+    AC_busbars_split(data, bus_to_be_split)
+
+Implement AC busbar splitting by creating new bus sections and connection switches.
+
+This function modifies the network data structure to enable busbar splitting optimization
+by duplicating specified buses and adding controllable switches (Zero Impedance Lines - ZILs)
+between the original and new bus sections. This allows the optimization to decide whether
+to operate the bus as a single unit or as separate sections.
+
+# Arguments
+- `data`: Network data dictionary (modified in-place)
+- `bus_to_be_split`: Bus index or vector of bus indices to be split
+
+# Algorithm
+1. **Mark Split Buses**: Add "split" and "ZIL" flags to indicate which buses can be split
+2. **Create New Bus Sections**: Duplicate each splittable bus to create separate bus sections
+3. **Setup Extremes Dictionary**: Create mapping between original buses and their sections
+4. **Prepare for Switch Creation**: Set up data structures for creating ZIL connections
+
+# Data Structure Changes
+- Original buses get `bus["split"] = true` and `bus["ZIL"] = true`
+- New bus sections are created with unique indices
+- New buses have `bus["bus_split"]` pointing to the original bus index
+- Bus sections maintain same electrical properties as original bus
+
+# Notes
+- ZIL (Zero Impedance Line) represents the controllable switch between bus sections
+- When ZIL is closed: bus sections operate as single bus
+- When ZIL is open: bus sections operate independently
+- This enables flexible bus operation for optimal power flows
+
+# Example
+```julia
+# Split bus 3 into two sections
+data = PowerModels.parse_file("case.m")
+AC_busbars_split(data, 3)
+
+# Split multiple buses
+AC_busbars_split(data, [1, 3, 5])
+```
+"""
 function AC_busbars_split(data,bus_to_be_split) 
     min_bus_original = minimum([bus["index"] for (b, bus) in data["bus"]]) 
     # Adding a new key to indicate which bus can be split + ZIL

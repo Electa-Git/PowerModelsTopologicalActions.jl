@@ -1,4 +1,42 @@
+"""
+Shared formulation constraints for converter systems in optimal transmission switching.
+
+This file contains constraint implementations that are shared across multiple
+mathematical formulations (W-space relaxations, etc.) for AC/DC converter
+systems in optimal transmission switching problems.
+"""
+
 ########################### OTS CONSTRAINTS #################################
+
+"""
+    constraint_converter_losses_dc_ots(pm::AbstractWModels, n::Int, i::Int, a, b, c, plmax)
+
+Converter loss constraint for W-space formulations with DC switching.
+
+Implements converter losses for relaxation formulations (SOC, QC) where voltage
+variables are represented in W-space (squared magnitudes). The loss model includes
+switching capability through binary variable z.
+
+# Arguments
+- `pm::AbstractWModels`: W-space power model formulation
+- `n::Int`: Network identifier
+- `i::Int`: Converter identifier
+- `a`, `b`, `c`: Loss coefficients (constant, linear, quadratic)
+- `plmax`: Maximum converter losses
+
+# Converter Loss Model (W-space)
+P_ac + P_dc = a*z + b*I_conv + c*I_conv²
+
+Where:
+- z: Binary converter status (1=on, 0=off)
+- a*z: No-load losses (only when converter is on)
+- Quadratic loss term uses squared current variable for convexity
+
+# Notes
+- Uses separated current magnitude and squared current variables
+- No-load losses scaled by switching status
+- Compatible with SOC and QC relaxation formulations
+"""
 function constraint_converter_losses_dc_ots(pm::_PM.AbstractWModels, n::Int, i::Int, a, b, c, plmax)
     pconv_ac = _PM.var(pm, n, :pconv_ac, i)
     pconv_dc = _PM.var(pm, n, :pconv_dc, i)
@@ -9,6 +47,38 @@ function constraint_converter_losses_dc_ots(pm::_PM.AbstractWModels, n::Int, i::
     JuMP.@constraint(pm.model, pconv_ac + pconv_dc == a*z + b*iconv + c*iconv_sq)
 end
 
+"""
+    constraint_conv_transformer_dc_ots(pm::AbstractWRModels, n::Int, i::Int, rtf, xtf, acbus, tm, transformer)
+
+Converter transformer constraints for WR relaxation formulations with DC switching.
+
+Implements the transformer component of AC/DC converters using W-R space variables
+(squared voltage magnitudes and cross-products) with switching capability. This
+formulation is used in SOC and QC relaxations.
+
+# Arguments
+- `pm::AbstractWRModels`: WR-space power model formulation
+- `n::Int`: Network identifier
+- `i::Int`: Converter identifier
+- `rtf`, `xtf`: Transformer resistance and reactance
+- `acbus`: Connected AC bus
+- `tm`: Transformer tap ratio
+- `transformer`: Boolean indicating transformer presence
+
+# WR-Space Variables
+- `w[acbus]`: Squared voltage magnitude at AC bus (V²)
+- `wf[i]`: Squared voltage magnitude at filter bus (V_f²)
+- `wrf[i]`: Real part of voltage cross-product (V*V_f*cos(θ-θ_f))
+- `wif[i]`: Imaginary part of voltage cross-product (V*V_f*sin(θ-θ_f))
+- `w_du_ots[i]`: Auxiliary variable for switching logic
+- `z_conv_dc[i]`: Binary converter switching status
+
+# Formulation Benefits
+- Convex relaxation of AC power flow
+- Handles transformer impedance in W-R space
+- Supports switching logic through binary variables
+- Compatible with conic optimization solvers
+"""
 function constraint_conv_transformer_dc_ots(pm::_PM.AbstractWRModels, n::Int, i::Int, rtf, xtf, acbus, tm, transformer)
     ptf_fr = _PM.var(pm, n,  :pconv_tf_fr, i)
     qtf_fr = _PM.var(pm, n,  :qconv_tf_fr, i)

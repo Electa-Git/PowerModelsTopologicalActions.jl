@@ -1,3 +1,43 @@
+"""
+    add_ref_dcgrid_dcswitch!(ref::Dict{Symbol,<:Any}, data::Dict{String,<:Any})
+
+Add DC grid reference data with switching capability support.
+
+This function extends the PowerModels reference dictionary to include DC grid
+connectivity information needed for optimal transmission switching and busbar
+splitting problems. It processes DC branches and creates arc mappings that
+support switchable DC elements.
+
+# Arguments
+- `ref::Dict{Symbol,<:Any}`: PowerModels reference dictionary (modified in-place)
+- `data::Dict{String,<:Any}`: Network data dictionary
+
+# Reference Data Added
+- `:branchdc`: Active DC branches (status = 1)
+- `:arcs_dcgrid_from`: DC arcs in forward direction [(branch_id, from_bus, to_bus)]
+- `:arcs_dcgrid_to`: DC arcs in reverse direction [(branch_id, to_bus, from_bus)]
+- `:arcs_dcgrid`: Combined forward and reverse DC arcs
+- `:bus_arcs_dcgrid`: DC arcs connected to each DC bus
+- `:bus_arcs_dcgrid_from`: Forward DC arcs connected to each DC bus
+- `:bus_arcs_dcgrid_to`: Reverse DC arcs connected to each DC bus
+
+# Arc Structure
+Each arc is represented as a tuple (branch_id, from_bus, to_bus) where:
+- `branch_id`: Unique identifier for the DC branch
+- `from_bus`: DC bus at the sending end
+- `to_bus`: DC bus at the receiving end
+
+# Switching Support
+- Only includes active branches (status = 1)
+- Validates bus connectivity for switching algorithms
+- Creates bidirectional arc representations for power flow modeling
+
+# Notes
+This function is essential for DC optimal transmission switching as it:
+1. Filters out inactive DC branches
+2. Creates the graph structure needed for switching optimization
+3. Provides bus-arc mappings for constraint generation
+"""
 function add_ref_dcgrid_dcswitch!(ref::Dict{Symbol,<:Any}, data::Dict{String,<:Any})
     for (n, nw_ref) in ref[:it][:pm][:nw]
         if haskey(nw_ref, :branchdc)
