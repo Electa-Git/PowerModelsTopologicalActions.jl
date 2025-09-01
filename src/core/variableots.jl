@@ -1,4 +1,24 @@
-########## Variables from PMACDC ##########
+"""
+    variable_dcgrid_voltage_magnitude(pm::AbstractPowerModel; nw::Int, bounded::Bool=true, report::Bool=true)
+
+Create DC grid voltage magnitude variables for OTS formulations.
+
+Creates voltage magnitude variables `vdcm[i]` for each DC bus `i` in the network.
+These variables are used in DC optimal transmission switching and busbar splitting problems.
+
+# Arguments
+- `pm::AbstractPowerModel`: PowerModels data structure
+- `nw::Int`: Network identifier (default: nw_id_default)
+- `bounded::Bool`: Whether to apply voltage bounds (default: true)
+- `report::Bool`: Whether to include in solution reporting (default: true)
+
+# Variables Created
+- `vdcm[i]`: DC voltage magnitude at DC bus `i` (kV or per unit)
+
+# Bounds Applied
+- Lower bound: `busdc["Vdcmin"]` from DC bus data
+- Upper bound: `busdc["Vdcmax"]` from DC bus data
+"""
 function variable_dcgrid_voltage_magnitude(pm::_PM.AbstractPowerModel; nw::Int=_PM.nw_id_default, bounded::Bool = true, report::Bool=true)
     vdcm = _PM.var(pm, nw)[:vdcm] = JuMP.JuMP.@variable(pm.model,
     [i in _PM.ids(pm, nw, :busdc)], base_name="$(nw)_vdcm",
@@ -15,7 +35,29 @@ function variable_dcgrid_voltage_magnitude(pm::_PM.AbstractPowerModel; nw::Int=_
     report && _IM.sol_component_value(pm, _PM.pm_it_sym, nw, :busdc, :vm, _PM.ids(pm, nw, :busdc), vdcm)
 end
 
-"variable: `vdcm[i]` for `i` in `dcbus`es"
+"""
+    variable_dcgrid_voltage_magnitude_sqr(pm::AbstractPowerModel; nw::Int, bounded::Bool=true, report::Bool=true)
+
+Create squared DC voltage magnitude variables for relaxation formulations.
+
+Creates squared voltage magnitude variables `wdc[i]` for each DC bus and cross-product
+variables `wdcr[(i,j)]` for DC bus pairs. These variables are used in relaxation
+formulations (SOC, QC) of DC grid optimization problems.
+
+# Arguments
+- `pm::AbstractPowerModel`: PowerModels data structure
+- `nw::Int`: Network identifier (default: nw_id_default)
+- `bounded::Bool`: Whether to apply voltage bounds (default: true)
+- `report::Bool`: Whether to include in solution reporting (default: true)
+
+# Variables Created
+- `wdc[i]`: Squared DC voltage magnitude at DC bus `i` (kV² or per unit²)
+- `wdcr[(i,j)]`: Cross-product voltage variable for DC bus pair `(i,j)`
+
+# Bounds Applied
+- `wdc[i]`: [`Vdcmin²`, `Vdcmax²`] from DC bus data
+- `wdcr[(i,j)]`: [0, `vm_fr_max * vm_to_max`] from bus pair data
+"""
 function variable_dcgrid_voltage_magnitude_sqr(pm::_PM.AbstractPowerModel; nw::Int=_PM.nw_id_default, bounded::Bool = true, report::Bool=true)
     wdc = _PM.var(pm, nw)[:wdc] = JuMP.@variable(pm.model,
     [i in _PM.ids(pm, nw, :busdc)], base_name="$(nw)_wdc",
@@ -44,6 +86,31 @@ end
 
 
 ########## OTS variables ###########
+"""
+    variable_branch_indicator_linearised_sp(pm::AbstractPowerModel; nw::Int, bounded::Bool=true, relax::Bool=false, report::Bool=true)
+
+Create linearized branch indicator variables for busbar splitting OTS.
+
+Creates binary indicator variables that determine whether transmission branches are
+switched on (1) or off (0) in optimal transmission switching with busbar splitting.
+The "linearised" refers to the fact that these variables are used in linearized
+switching constraints rather than big-M formulations.
+
+# Arguments
+- `pm::AbstractPowerModel`: PowerModels data structure
+- `nw::Int`: Network identifier (default: nw_id_default)
+- `bounded::Bool`: Whether to apply variable bounds (default: true)
+- `relax::Bool`: Whether to relax binary variables to continuous [0,1] (default: false)
+- `report::Bool`: Whether to include in solution reporting (default: true)
+
+# Variables Created
+- Binary or continuous variables for each switchable branch
+
+# Notes
+The "sp" suffix indicates this is for busbar splitting formulations. Linearized
+formulations typically provide better computational performance than big-M approaches
+for transmission switching problems.
+"""
 function variable_branch_indicator_linearised_sp(pm::_PM.AbstractPowerModel; nw::Int=_PM.nw_id_default, bounded::Bool=true, relax::Bool=false, report::Bool=true)
     br = Dict()
     for l in _PM.ids(pm, nw, :branch)

@@ -1,7 +1,44 @@
 ###################### OTS Constraints ############################
+
+"""
+    constraint_voltage_dc_ots(pm::AbstractPowerModel, n::Int)
+
+Placeholder function for DC voltage constraints in optimal transmission switching.
+
+This function provides a hook for implementing DC voltage-related constraints in
+OTS formulations, though the current implementation is empty.
+
+# Arguments
+- `pm::AbstractPowerModel`: PowerModels data structure
+- `n::Int`: Network identifier
+"""
 function constraint_voltage_dc_ots(pm::_PM.AbstractPowerModel,  n::Int)
 end
 
+"""
+    constraint_power_balance_dc_ots(pm::AbstractPowerModel, n::Int, i::Int, bus_arcs_dcgrid, bus_convs_dc, pd)
+
+DC power balance constraint for optimal transmission switching.
+
+Enforces Kirchhoff's current law at DC buses in OTS formulations, ensuring that
+the sum of power flows into/out of each DC bus equals the net power demand.
+
+# Arguments
+- `pm::AbstractPowerModel`: PowerModels data structure
+- `n::Int`: Network identifier
+- `i::Int`: DC bus identifier
+- `bus_arcs_dcgrid`: Collection of DC branch arcs connected to the bus
+- `bus_convs_dc`: Collection of DC converters connected to the bus
+- `pd`: Power demand at the DC bus
+
+# Constraint
+∑(p_dcgrid[a] for a in bus_arcs_dcgrid) + ∑(pconv_dc[c] for c in bus_convs_dc) = -pd
+
+Where:
+- `p_dcgrid[a]`: Power flow on DC branch arc `a`
+- `pconv_dc[c]`: DC-side power of converter `c`
+- `pd`: Power demand (positive value represents load)
+"""
 function constraint_power_balance_dc_ots(pm::_PM.AbstractPowerModel, n::Int, i::Int, bus_arcs_dcgrid, bus_convs_dc, pd)
     p_dcgrid = _PM.var(pm, n, :p_dcgrid)
     pconv_dc = _PM.var(pm, n, :pconv_dc)
@@ -9,6 +46,38 @@ function constraint_power_balance_dc_ots(pm::_PM.AbstractPowerModel, n::Int, i::
     JuMP.@constraint(pm.model, sum(p_dcgrid[a] for a in bus_arcs_dcgrid) + sum(pconv_dc[c] for c in bus_convs_dc) == (-pd))
 end
 
+"""
+    constraint_converter_limit_on_off_dc_ots(pm::AbstractPowerModel, n::Int, i, pmax, pmin, qmax, qmin, pmaxdc, pmindc, imax)
+
+Converter operating limits with switching capability for DC OTS.
+
+Enforces operating limits on DC converters that can be switched on/off in optimal
+transmission switching problems. When a converter is off (z_dc = 0), all power
+flows and currents are forced to zero. When on (z_dc = 1), normal operating
+limits apply.
+
+# Arguments
+- `pm::AbstractPowerModel`: PowerModels data structure
+- `n::Int`: Network identifier
+- `i`: Converter identifier
+- `pmax`, `pmin`: AC-side active power limits (MW)
+- `qmax`, `qmin`: AC-side reactive power limits (MVAr)  
+- `pmaxdc`, `pmindc`: DC-side active power limits (MW)
+- `imax`: Maximum converter current (A)
+
+# Constraints Applied
+For each converter power/current variable x and limit [xmin, xmax]:
+- x ≤ xmax * z_dc
+- x ≥ xmin * z_dc
+
+Where z_dc is the binary converter status variable (1 = on, 0 = off).
+
+# Variables Constrained
+- AC-side powers: pconv_ac, pconv_tf_fr, pconv_tf_to, pconv_pr_fr
+- AC-side reactive: qconv_ac, qconv_tf_fr, qconv_tf_to, qconv_pr_fr
+- DC-side power: pconv_dc
+- AC-side current: iconv_ac
+"""
 function constraint_converter_limit_on_off_dc_ots(pm::_PM.AbstractPowerModel, n::Int, i, pmax, pmin, qmax, qmin, pmaxdc, pmindc, imax)
     pconv_ac = _PM.var(pm, n, :pconv_ac)[i]
     pconv_dc = _PM.var(pm, n, :pconv_dc)[i]

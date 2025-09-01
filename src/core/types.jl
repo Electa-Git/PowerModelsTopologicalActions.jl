@@ -17,15 +17,79 @@
     SDPWRMPowerModel, SparseSDPWRMPowerModel
 ================================================#
 
+"""
+Type definitions for power system model formulations in topological actions.
+
+This file defines abstract types that categorize different mathematical formulations
+used for optimal transmission switching and busbar splitting problems. These types
+help organize the various solution approaches by their mathematical properties and
+computational requirements.
+"""
+
 ##### Top Level Abstract Types #####
 
-"active power only models"
+"""
+    AbstractActivePowerModel <: AbstractPowerModel
+
+Abstract type for power system models that only consider active power flows.
+
+Active power only models ignore reactive power and voltage magnitude variations,
+focusing solely on active power balance and transmission limits. These models
+are typically used for:
+- DC approximation problems
+- Economic dispatch with transmission constraints
+- Large-scale planning studies where reactive power effects are negligible
+
+# Computational Properties
+- Linear or quadratic programming problems
+- Fast solution times
+- Approximate solutions (ignore voltage/reactive effects)
+"""
 abstract type AbstractActivePowerModel <: AbstractPowerModel end
 
-"variants that target conic solvers"
+"""
+    AbstractConicModel <: AbstractPowerModel
+
+Abstract type for power system models formulated as conic optimization problems.
+
+Conic models use second-order cone or semidefinite programming relaxations of the
+AC power flow equations. These formulations provide:
+- Convex relaxations of nonconvex AC power flow
+- Global optimality guarantees (for relaxed problems)
+- Efficient solution using specialized conic solvers
+
+# Typical Conic Formulations
+- Second-Order Cone (SOC) relaxations
+- Semidefinite Programming (SDP) relaxations
+- Quadratic convex relaxations
+
+# Solver Requirements
+- Conic optimization solvers (e.g., Mosek, ECOS, SCS)
+- Handle quadratic and semidefinite constraints efficiently
+"""
 abstract type AbstractConicModel <: AbstractPowerModel end
 
-"for branch flow models"
+"""
+    AbstractBFModel <: AbstractPowerModel
+
+Abstract type for branch flow power system models.
+
+Branch flow models use branch power flows and squared voltage magnitudes as
+primary variables instead of bus voltage phasors. This formulation:
+- Naturally handles radial network topologies
+- Provides convex relaxations for certain network structures
+- Simplifies voltage constraint enforcement
+
+# Applications
+- Distribution system optimization
+- Radial transmission network analysis
+- Problems where voltage magnitudes are primary concerns
+
+# Variable Types
+- Branch power flows (P, Q)
+- Squared voltage magnitudes
+- Current flows (optional)
+"""
 abstract type AbstractBFModel <: AbstractPowerModel end
 
 
