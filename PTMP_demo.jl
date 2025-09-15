@@ -31,8 +31,8 @@ _PMACDC.process_additional_data!(data_5_acdc)
 ## Optimal Power Flow models ##
 #######################################################################################
 # OPF simulations
-result_opf_ac = _PMACDC.run_acdcopf(data_5_acdc,ACPPowerModel,ipopt; setting = s)
-result_opf_lpac = _PMACDC.run_acdcopf(data_5_acdc,LPACCPowerModel,gurobi; setting = s)
+result_opf_ac = _PMACDC.solve_acdcopf(data_5_acdc,ACPPowerModel,ipopt; setting = s)
+result_opf_lpac = _PMACDC.solve_acdcopf(data_5_acdc,LPACCPowerModel,gurobi; setting = s)
 
 
 #######################################################################################
@@ -46,14 +46,14 @@ data_busbars_ac_split_5_acdc_plus = deepcopy(data_5_acdc)
 data_busbars_ac_split_5_acdc_more_buses = deepcopy(data_5_acdc)
 
 # Selecting which busbars are split
-splitted_bus_ac = [1,2,3,4,5]
+splitted_bus_ac = 3
 #splitted_bus_ac = 2
 #splitted_bus_ac_more_buses = [2,4]
 
 splitted_bus_dc = 2
 
 
-data_busbars_ac_split_5_acdc,  switches_couples_ac_5,  extremes_ZILs_5_ac  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc,splitted_bus_ac)
+data_busbars_ac_split_5_acdc,  switches_couples_ac_5,  extremes_ZILs_5_ac  = _PMTP.AC_busbars_split(data_busbars_ac_split_5_acdc,splitted_bus_ac)
 data_busbars_ac_split_5_acdc_plus,  switches_couples_ac_5_plus,  extremes_ZILs_5_ac_plus  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc_plus,splitted_bus_ac)
 
 #data_busbars_ac_split_5_acdc_more_buses,  switches_couples_ac_5_more_buses,  extremes_ZILs_5_ac_more_buses  = _PMTP.AC_busbar_split_more_buses(data_busbars_ac_split_5_acdc_more_buses,splitted_bus_ac_more_buses)
@@ -122,4 +122,9 @@ for (i,sw) in ac_bs_lpac_ref["switch"]
         println(i," ")
     end
 end
+
+function solve_model_check(data::Dict{String,Any}, model_type::Type; kwargs...)
+    return _PM.instantiate_model(data, model_type, _PMTP.build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!,_PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!], kwargs...)
+end
+pm = solve_model_check(ac_bs_ac_ref, _PM.ACPPowerModel)
 

@@ -1,5 +1,5 @@
-export run_acdcsw_AC_big_M
-export run_acdcsw_AC_big_M_sp
+export run_acdcsw_AC
+export run_acdcsw_AC_sp
 
 export run_acdcsw_AC_grid
 export run_acdcsw_AC_grid_sp
@@ -8,7 +8,7 @@ export run_acdcsw_AC_grid_sp
 # AC Busbar splitting for AC/DC grid
 "ACDC opf with controllable switches in AC busbar splitting configuration for AC/DC grids"
 function run_acdcsw_AC(file, model_constructor, optimizer; kwargs...)
-    return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!], kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!,_PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!], kwargs...)
 end
 
 ""
@@ -22,10 +22,15 @@ function build_acdcsw_AC(pm::_PM.AbstractPowerModel)
     variable_switch_power(pm) # variable to indicate the power flowing through an ac switch (if closed)
 
     # DC grid
-    _PMACDC.variable_active_dcbranch_flow(pm)
     _PMACDC.variable_dcbranch_current(pm)
     _PMACDC.variable_dc_converter(pm)
     _PMACDC.variable_dcgrid_voltage_magnitude(pm)
+    _PMACDC.variable_active_dcbranch_flow(pm)
+    _PMACDC.variable_dcgenerator_power(pm)
+    _PMACDC.variable_flexible_demand(pm)
+    _PMACDC.variable_pst(pm)
+    _PMACDC.variable_sssc(pm)
+
 
     # Objective function
     objective_min_fuel_cost_ac_switch(pm)
