@@ -239,6 +239,7 @@ function AC_busbars_split(data,bus_to_be_split)
 end
 
 function DC_busbars_split(data,bus_to_be_split)
+    min_bus_original = minimum([bus["index"] for (b, bus) in data["busdc"]]) 
     if length(bus_to_be_split) == 1
         for i in keys(data["busdc"])
             if parse(Int64,i) != bus_to_be_split
@@ -248,22 +249,21 @@ function DC_busbars_split(data,bus_to_be_split)
         data["busdc"]["$bus_to_be_split"]["split"] = true
         data["busdc"]["$bus_to_be_split"]["ZIL"] = true
     else
+        for i in keys(data["busdc"])
+            data["busdc"]["$i"]["split"] = false
+            data["bus"]["$i"]["ZIL"] = false
+        end
         for n in bus_to_be_split
-            for i in keys(data["busdc"])
-                if parse(Int64,i) != n && !haskey(data["busdc"][i],"ZIL")
-                    data["busdc"]["$i"]["split"] = false
-                end
-            end
             data["busdc"]["$n"]["split"] = true
             data["busdc"]["$n"]["ZIL"] = true
         end
     end
 
     # Adding a busdc next to the split
-    n_buses_original_dc = length(data["busdc"])
+    n_buses_original_dc = maximum([bus["index"] for (b, bus) in data["busdc"]]) 
     count_dc = 0
     for (b_id,b) in data["busdc"] 
-        if haskey(b,"ZIL") && parse(Int64,b_id) <= n_buses_original_dc
+        if b["split"] == true && parse(Int64,b_id) <= n_buses_original_dc # make sure we include only the original buses
             count_dc += 1
             b["busdc_split"] = deepcopy(b["index"])
             added_bus_dc = n_buses_original_dc + count_dc
@@ -280,15 +280,24 @@ function DC_busbars_split(data,bus_to_be_split)
     # Creating a dictionary with the split buses
     extremes_ZIL_dc = Dict{String,Any}()
     for (b_id,b) in data["busdc"]
-        if b["split"] == true && !haskey(extremes_ZIL_dc,b["busdc_split"])
-            split_bus_dc = b["busdc_split"]
-            extremes_ZIL_dc["$split_bus_dc"] = []
+        if b["split"] == true && !haskey(extremes_ZIL_dc,b["busdc_split"]) # isolating only the original buses being split
+            extremes_ZIL_dc["$(b["busdc_split"])"] = []
         end
     end
-    for b in 1:length(data["busdc"])
-        if haskey(data["busdc"]["$b"],"ZIL")
+
+    for b in eachindex(data["busdc"])#1:length(data["bus"])
+        if haskey(data["busdc"]["$b"],"busdc_split")
             for i in eachindex(extremes_ZIL_dc)
-                if data["busdc"]["$b"]["busdc_split"] == parse(Int64,i)
+                if data["busdc"]["$b"]["busdc_split"] == parse(Int64,i) && data["busdc"]["$b"]["index"] <= n_buses_original_dc  # counting only the buses related to the bus split, pushing them to the keys in the dictionary
+                    push!(extremes_ZIL_dc[i],data["busdc"]["$b"]["index"])
+                end
+            end
+        end
+    end
+    for b in eachindex(data["busdc"])#1:length(data["bus"])
+        if haskey(data["busdc"]["$b"],"busdc_split")
+            for i in eachindex(extremes_ZIL_dc)
+                if data["busdc"]["$b"]["busdc_split"] == parse(Int64,i) && data["busdc"]["$b"]["index"] > n_buses_original_dc  # counting only the buses related to the bus split, pushing them to the keys in the dictionary
                     push!(extremes_ZIL_dc[i],data["busdc"]["$b"]["index"])
                 end
             end
@@ -305,79 +314,31 @@ function DC_busbars_split(data,bus_to_be_split)
         data["dcswitch"]["$switch_id"]["f_busdc"] = deepcopy(extremes_ZIL_dc[i][1]) 
         data["dcswitch"]["$switch_id"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][2])
         data["dcswitch"]["$switch_id"]["index"] = switch_id
-        data["dcswitch"]["$switch_id"]["psw"] = 10.0
-        data["dcswitch"]["$switch_id"]["thermal_rating"] = 10.0
+        data["dcswitch"]["$switch_id"]["psw"] = 100.0
+        data["dcswitch"]["$switch_id"]["thermal_rating"] = 100.0
         data["dcswitch"]["$switch_id"]["state"] = 1
         data["dcswitch"]["$switch_id"]["status"] = 1
         data["dcswitch"]["$switch_id"]["source_id"] = []
+        data["dcswitch"]["$switch_id"]["cost"] = 1.0
         push!(data["dcswitch"]["$switch_id"]["source_id"],"dcswitch")
         push!(data["dcswitch"]["$switch_id"]["source_id"],switch_id)
         data["dcswitch"]["$switch_id"]["ZIL"] = true
     end
 
-    # Add a busdc for each grid element, same keys as for the ac busbars
-
-    # Gen and loads on the DC part can be added, but we do not have any for now 
-    #=
-    # Gen_dc
-    for (g_id,g) in data["gen"] 
-        n_buses = length(data["busdc"])
-        for i in eachindex(extremes_ZIL_dc)
-            if g["gen_bus"] == parse(Int64,i)
-                added_gen_bus = n_buses + 1
-                data["busdc"]["$added_gen_bus"] = deepcopy(data["busdc"]["1"])
-                data["busdc"]["$added_gen_bus"]["busdc_i"] = added_gen_bus 
-                data["busdc"]["$added_gen_bus"]["index"] = added_gen_bus 
-                data["busdc"]["$added_gen_bus"]["source_id"][2] = added_gen_bus 
-                data["busdc"]["$added_gen_bus"]["auxiliary_bus"] = true
-                data["busdc"]["$added_gen_bus"]["auxiliary"] = "gen"
-                data["busdc"]["$added_gen_bus"]["original"] = parse(Int64,g_id)  
-                delete!(data["busdc"]["$added_gen_bus"],"ZIL")
-                if haskey(data["busdc"]["$added_gen_bus"],"split")
-                    delete!(data["busdc"]["$added_gen_bus"],"split")
-                end
-
-                g["gen_bus"] = added_gen_bus
-            end
-        end
-    end 
-    
-    # Load_dc
-    for (l_id,l) in data["load"] 
-        n_buses = length(data["bus"])
-        for i in eachindex(extremes_ZIL_dc)
-            if l["load_bus"] == parse(Int64,i)
-                added_load_bus = n_buses + 1
-                data["busdc"]["$added_load_bus"] = deepcopy(data["busdc"]["1"])
-                data["busdc"]["$added_load_bus"]["busdc_i"] = added_load_bus 
-                data["busdc"]["$added_load_bus"]["index"] = added_load_bus 
-                data["busdc"]["$added_load_bus"]["source_id"][2] = added_load_bus 
-                data["busdc"]["$added_load_bus"]["auxiliary_bus"] = true 
-                data["busdc"]["$added_load_bus"]["original"] = parse(Int64,l_id)  
-                data["busdc"]["$added_load_bus"]["auxiliary"] = "load"
-                delete!(data["busdc"]["$added_load_bus"],"ZIL")
-                if haskey(data["busdc"]["$added_load_bus"],"split")
-                    delete!(data["busdc"]["$added_load_bus"],"split")
-                end
-                l["load_bus"] = added_load_bus
-            end
-        end
-    end 
-    =#
     # Branch dc
     for (br_id,br) in data["branchdc"] 
         for i in eachindex(extremes_ZIL_dc)
-            n_buses = length(data["busdc"])
+            n_buses = maximum([bus["index"] for (b, bus) in data["busdc"]]) 
             if br["fbusdc"] == parse(Int64,i) && !haskey(br,"ZIL") 
                 added_branch_bus = n_buses + 1
-                data["busdc"]["$added_branch_bus"] = deepcopy(data["busdc"]["1"])
+                data["busdc"]["$added_branch_bus"] = deepcopy(data["busdc"]["$min_bus_original"])
                 data["busdc"]["$added_branch_bus"]["busdc_i"] = added_branch_bus 
                 data["busdc"]["$added_branch_bus"]["index"] = added_branch_bus 
                 data["busdc"]["$added_branch_bus"]["source_id"][2] = added_branch_bus 
                 data["busdc"]["$added_branch_bus"]["auxiliary_bus"] = true 
                 data["busdc"]["$added_branch_bus"]["auxiliary"] = "branchdc"
-                data["busdc"]["$added_branch_bus"]["original"] = parse(Int64,br_id)
-                data["busdc"]["$added_branch_bus"]["busdc_split"] = parse(Int64,i) 
+                data["busdc"]["$added_branch_bus"]["original"] = deepcopy(parse(Int64,br_id))
+                data["busdc"]["$added_branch_bus"]["busdc_split"] = deepcopy(parse(Int64,i)) 
                 if haskey(data["busdc"]["$added_branch_bus"],"split")
                     delete!(data["busdc"]["$added_branch_bus"],"split")
                 end
@@ -389,9 +350,9 @@ function DC_busbars_split(data,bus_to_be_split)
                 data["busdc"]["$added_branch_bus"]["index"] = added_branch_bus 
                 data["busdc"]["$added_branch_bus"]["source_id"][2] = added_branch_bus 
                 data["busdc"]["$added_branch_bus"]["auxiliary_bus"] = true 
-                data["busdc"]["$added_branch_bus"]["original"] = parse(Int64,br_id) 
+                data["busdc"]["$added_branch_bus"]["original"] = deepcopy(parse(Int64,br_id)) 
                 data["busdc"]["$added_branch_bus"]["auxiliary"] = "branchdc"
-                data["busdc"]["$added_branch_bus"]["busdc_split"] = parse(Int64,i) 
+                data["busdc"]["$added_branch_bus"]["busdc_split"] = deepcopy(parse(Int64,i)) 
                 data["busdc"]["$added_branch_bus"]["split"] = false
                 br["tbusdc"] = added_branch_bus
             end
@@ -401,12 +362,12 @@ function DC_busbars_split(data,bus_to_be_split)
     # Converters
     if haskey(data,"convdc")
         for (cv_id,cv) in data["convdc"] 
-            n_buses = length(data["busdc"])
             for i in eachindex(extremes_ZIL_dc)
+                n_buses = maximum([bus["index"] for (b, bus) in data["busdc"]]) 
                 if cv["busdc_i"] == parse(Int64,i)
                     added_conv_bus = n_buses + 1
-                    data["busdc"]["$added_conv_bus"] = deepcopy(data["busdc"]["1"])
-                    data["busdc"]["$added_conv_bus"]["bus_type"] = 1
+                    data["busdc"]["$added_conv_bus"] = deepcopy(data["busdc"]["$min_bus_original"])
+                    #data["busdc"]["$added_conv_bus"]["bus_type"] = 1
                     data["busdc"]["$added_conv_bus"]["busdc_i"] = added_conv_bus 
                     data["busdc"]["$added_conv_bus"]["index"] = added_conv_bus 
                     data["busdc"]["$added_conv_bus"]["source_id"][2] = added_conv_bus 
@@ -426,39 +387,41 @@ function DC_busbars_split(data,bus_to_be_split)
         # Connecting to the first bus
         if haskey(b,"auxiliary_bus") #&& b["split"] == true
             for i in eachindex(extremes_ZIL_dc)
-                if b["busdc_split"] == extremes_ZIL_dc[i][1] 
+                if b["busdc_split"] == parse(Int64,i) 
                     number_switches = length(data["dcswitch"])
-                    added_switch = number_switches + 1
-                    data["dcswitch"]["$added_switch"] = deepcopy(data["dcswitch"]["1"])
-                    data["dcswitch"]["$added_switch"]["f_busdc"] = deepcopy(parse(Int64,b_id)) 
-                    data["dcswitch"]["$added_switch"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][1])
-                    data["dcswitch"]["$added_switch"]["index"] = added_switch 
-                    data["dcswitch"]["$added_switch"]["source_id"][2] = deepcopy(added_switch)
-                    data["dcswitch"]["$added_switch"]["auxiliary"] = deepcopy(b["auxiliary"]) 
-                    data["dcswitch"]["$added_switch"]["original"] = deepcopy(b["original"]) 
-                    data["dcswitch"]["$added_switch"]["busdc_split"] = deepcopy(extremes_ZIL_dc[i][1])
-                    data["dcswitch"]["$added_switch"]["ZIL"] = false
-                end
-                if b["busdc_split"] == extremes_ZIL_dc[i][1] 
-                    number_switches = length(data["dcswitch"])
-                    added_switch = number_switches + 1
-                    data["dcswitch"]["$added_switch"] = deepcopy(data["dcswitch"]["1"])
-                    data["dcswitch"]["$added_switch"]["f_busdc"] = deepcopy(parse(Int64,b_id)) 
-                    data["dcswitch"]["$added_switch"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][2])
-                    data["dcswitch"]["$added_switch"]["index"] = added_switch
-                    data["dcswitch"]["$added_switch"]["auxiliary"] = deepcopy(b["auxiliary"]) 
-                    data["dcswitch"]["$added_switch"]["original"] = deepcopy(b["original"])  
-                    data["dcswitch"]["$added_switch"]["source_id"][2] = deepcopy(added_switch)
-                    data["dcswitch"]["$added_switch"]["busdc_split"] = deepcopy(extremes_ZIL_dc[i][1])
-                    data["dcswitch"]["$added_switch"]["ZIL"] = false  
+                    added_switch_1 = number_switches + 1
+                    data["dcswitch"]["$added_switch_1"] = deepcopy(data["dcswitch"]["1"])
+                    data["dcswitch"]["$added_switch_1"]["cost"] = 0.0
+                    data["dcswitch"]["$added_switch_1"]["f_busdc"] = deepcopy(parse(Int64,b_id)) 
+                    data["dcswitch"]["$added_switch_1"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][1])
+                    data["dcswitch"]["$added_switch_1"]["index"] = added_switch_1
+                    data["dcswitch"]["$added_switch_1"]["source_id"][2] = deepcopy(added_switch_1)
+                    data["dcswitch"]["$added_switch_1"]["auxiliary"] = deepcopy(b["auxiliary"]) 
+                    data["dcswitch"]["$added_switch_1"]["original"] = deepcopy(b["original"]) 
+                    data["dcswitch"]["$added_switch_1"]["busdc_split"] = parse(Int64,i) 
+                    #data["dcswitch"]["$added_switch_1"]["ZIL"] = false
+
+                    added_switch_2 = added_switch_1 + 1
+                    data["dcswitch"]["$added_switch_2"] = deepcopy(data["dcswitch"]["1"])
+                    data["dcswitch"]["$added_switch_2"]["cost"] = 0.0
+                    data["dcswitch"]["$added_switch_2"]["f_busdc"] = deepcopy(parse(Int64,b_id)) 
+                    data["dcswitch"]["$added_switch_2"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][2])
+                    data["dcswitch"]["$added_switch_2"]["index"] = added_switch_2
+                    data["dcswitch"]["$added_switch_2"]["auxiliary"] = deepcopy(b["auxiliary"]) 
+                    data["dcswitch"]["$added_switch_2"]["original"] = deepcopy(b["original"])  
+                    data["dcswitch"]["$added_switch_2"]["source_id"][2] = deepcopy(added_switch_2)
+                    data["dcswitch"]["$added_switch_2"]["busdc_split"] = parse(Int64,i) 
+                    #data["dcswitch"]["$added_switch_2"]["ZIL"] = false  
                 end
             end
         end
     end
 
     dcswitch_couples = compute_couples_of_dcswitches(data)
+    data["switch_couples"] = Dict{String,Any}()
     data["dcswitch_couples"] = Dict{String,Any}()
     data["dcswitch_couples"] = deepcopy(dcswitch_couples)
+    
     return data, dcswitch_couples, extremes_ZIL_dc
 end
 
@@ -515,21 +478,17 @@ end
 
 function compute_couples_of_dcswitches(data)
     switch_couples = Dict{String,Any}()
-    t_sws = []
     for (sw_id,sw) in data["dcswitch"]
-        for l in keys(data["dcswitch"])
+        for l in eachindex(data["dcswitch"])
             if (haskey(sw, "auxiliary") && haskey(data["dcswitch"][l], "auxiliary")) && (sw["auxiliary"] == data["dcswitch"][l]["auxiliary"]) && (sw["original"] == data["dcswitch"][l]["original"]) && (sw["index"] != data["dcswitch"][l]["index"]) && (sw["busdc_split"] == data["dcswitch"][l]["busdc_split"])
-                if !issubset(sw["index"],t_sws) 
-                    switch_couples["$sw_id"] = Dict{String,Any}()
-                    switch_couples["$sw_id"]["f_sw"] = sw["index"]
-                    switch_couples["$sw_id"]["t_sw"] = data["dcswitch"][l]["index"]
-                    switch_couples["$sw_id"]["busdc_split"] = data["dcswitch"][l]["busdc_split"]
-                    for (s_id,s) in data["dcswitch"] 
-                        if !(haskey(s, "auxiliary")) && haskey(s,"ZIL") && s["busdc_split"] == switch_couples["$sw_id"]["busdc_split"]
-                            switch_couples["$sw_id"]["dcswitch_split"] = deepcopy(s["index"])
-                        end
+                switch_couples["$sw_id"] = Dict{String,Any}()
+                switch_couples["$sw_id"]["f_sw"] = deepcopy(sw["index"])
+                switch_couples["$sw_id"]["t_sw"] = deepcopy(data["dcswitch"][l]["index"])
+                switch_couples["$sw_id"]["busdc_split"] = deepcopy(data["dcswitch"][l]["busdc_split"])
+                for (s_id,s) in data["dcswitch"] 
+                    if !(haskey(s, "auxiliary")) && haskey(s,"ZIL") && s["busdc_split"] == switch_couples["$sw_id"]["busdc_split"]
+                        switch_couples["$sw_id"]["dcswitch_split"] = deepcopy(s["index"])
                     end
-                    push!(t_sws,switch_couples["$sw_id"]["t_sw"])
                 end
             end
         end

@@ -273,10 +273,10 @@ function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2,
     pf_ = _PM.var(pm, n, :p_dcgrid, pf)
     pt_ = _PM.var(pm, n, :p_dcgrid, pt)
 
-    JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*100)
-    JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*100)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*100 <= pf_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*100 <= pt_)
+    JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*10)
+    JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*10)
+    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pf_)
+    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pt_)
 end
 
 function constraint_power_balance_dc_switch(pm::_PM.AbstractPowerModel, n::Int, i::Int, bus_arcs_dcgrid, bus_convs_dc, bus_arcs_sw_dc, pd)

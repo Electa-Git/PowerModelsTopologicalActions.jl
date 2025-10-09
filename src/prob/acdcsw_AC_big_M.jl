@@ -1,14 +1,16 @@
+#=
 export run_acdcsw_AC
 export run_acdcsw_AC_sp
 
 export run_acdcsw_AC_grid
 export run_acdcsw_AC_grid_sp
-
+=#
 
 # AC Busbar splitting for AC/DC grid
 "ACDC opf with controllable switches in AC busbar splitting configuration for AC/DC grids"
 function run_acdcsw_AC(file, model_constructor, optimizer; kwargs...)
-    return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!,_PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!], kwargs...)
+    #return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!,_PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!], kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
 ""
@@ -26,10 +28,10 @@ function build_acdcsw_AC(pm::_PM.AbstractPowerModel)
     _PMACDC.variable_dc_converter(pm)
     _PMACDC.variable_dcgrid_voltage_magnitude(pm)
     _PMACDC.variable_active_dcbranch_flow(pm)
-    _PMACDC.variable_dcgenerator_power(pm)
-    _PMACDC.variable_flexible_demand(pm)
-    _PMACDC.variable_pst(pm)
-    _PMACDC.variable_sssc(pm)
+    #_PMACDC.variable_dcgenerator_power(pm)
+    #_PMACDC.variable_flexible_demand(pm)
+    #_PMACDC.variable_pst(pm)
+    #_PMACDC.variable_sssc(pm)
 
 
     # Objective function
@@ -56,6 +58,7 @@ function build_acdcsw_AC(pm::_PM.AbstractPowerModel)
     for i in _PM.ids(pm, :switch_couples)
         constraint_exclusivity_switch(pm, i) # the sum of the switches in a couple must be lower or equal than one (if OTS is allowed, like here), as each grid element is connected to either part of a split busbar no matter if the ZIL switch is opened or closed
         constraint_BS_OTS_branch(pm,i) # making sure that if the grid element is not reconnected to the split busbar, the active and reactive power flowing through the switch is 0
+        constraint_ZIL_switch(pm,i)
     end
 
     for i in _PM.ids(pm, :branch)

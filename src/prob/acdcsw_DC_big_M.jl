@@ -17,19 +17,18 @@ function build_acdcsw_DC(pm::_PM.AbstractPowerModel)
     variable_dc_switch_indicator(pm) # binary variable to indicate the status of a dc switch
     variable_dc_switch_power(pm) # variable to indicate the power flowing through a dc switch (if closed)
 
-    # Bilinear variables
-    auxiliary_variable_DC_switch_voltage_magnitude(pm)
-    auxiliary_diff_DC_switch_voltage_magnitude(pm)
-
     # DC grid
-    _PMACDC.variable_active_dcbranch_flow(pm)
     _PMACDC.variable_dcbranch_current(pm)
     _PMACDC.variable_dc_converter(pm)
     _PMACDC.variable_dcgrid_voltage_magnitude(pm)
+    _PMACDC.variable_active_dcbranch_flow(pm)
+    #_PMACDC.variable_dcgenerator_power(pm)
+    #_PMACDC.variable_flexible_demand(pm)
+    #_PMACDC.variable_pst(pm)
+    #_PMACDC.variable_sssc(pm)
 
     # Objective function
     objective_min_fuel_cost_dc_switch(pm)
-
 
     # Constraints
     _PM.constraint_model_voltage(pm)
@@ -62,10 +61,6 @@ function build_acdcsw_DC(pm::_PM.AbstractPowerModel)
         _PM.constraint_thermal_limit_from(pm, i)
         _PM.constraint_thermal_limit_to(pm, i)
     end
-
-   #for i in _PM.ids(pm, :dcline)
-   #    _PM.constraint_dcline_power_losses(pm, i)
-   #end
 
     for i in _PM.ids(pm, :busdc)
         constraint_power_balance_dc_switch(pm, i) # taking into account dc switches in the power balance of the dc part of an AC/DC grid

@@ -53,7 +53,9 @@ end
 function calc_dc_switch_cost(pm::_PM.AbstractPowerModel)
     cost = JuMP.AffExpr(0.0)
     for (sw_id,sw) in _PM.ref(pm, :dcswitch)
-        JuMP.add_to_expression!(cost, sw["cost"], (1 - _PM.var(pm,:z_dcswitch,sw_id)))
+        if !haskey(sw,"auxiliary")
+            JuMP.add_to_expression!(cost, sw["cost"], (1 - _PM.var(pm,:z_dcswitch,sw_id)))
+        end
     end
     return cost
 end
