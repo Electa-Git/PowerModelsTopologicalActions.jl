@@ -3,13 +3,13 @@ export run_acdcsw_AC_DC_no_OTS
 
 # DC Busbar splitting for AC/DC grid
 "ACDC opf with controllable switches in DC busbar splitting configuration for AC/DC grids"
-function run_acdcsw_AC_DC(file, model_constructor, optimizer; kwargs...)
+function run_acdcsw_AC_DC_old(file, model_constructor, optimizer; kwargs...)
     return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC_DC; ref_extensions=[add_ref_dcgrid_dcswitch!,_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
 
 ""
-function build_acdcsw_AC_DC(pm::_PM.AbstractPowerModel) # this model combines what defined in the build_acdcsw_AC and build_acdcsw_DC models, please refer to those functions to have more detailed explanation of those formulations
+function build_acdcsw_AC_DC_old(pm::_PM.AbstractPowerModel) # this model combines what defined in the build_acdcsw_AC and build_acdcsw_DC models, please refer to those functions to have more detailed explanation of those formulations
     # AC grid
     _PM.variable_bus_voltage(pm)
     _PM.variable_gen_power(pm)

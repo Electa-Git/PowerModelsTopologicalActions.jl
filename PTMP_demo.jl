@@ -26,14 +26,18 @@ data_file_5_acdc = joinpath(@__DIR__,"data_sources",test_case_5_acdc)
 
 data_5_acdc = _PM.parse_file(data_file_5_acdc)
 _PMACDC.process_additional_data!(data_5_acdc)
+for (cv_id,cv) in data_5_acdc["convdc"]
+    cv["type_ac"] = 2
+    cv["Q_g"] = 0
+    cv["kq_droop"] = 5
+end
 
 #######################################################################################
 ## Optimal Power Flow models ##
 #######################################################################################
 # OPF simulations
-result_opf_ac = _PMACDC.run_acdcopf(data_5_acdc,ACPPowerModel,ipopt; setting = s)
-result_opf_lpac = _PMACDC.run_acdcopf(data_5_acdc,LPACCPowerModel,ipopt; setting = s)
-# -> link this to an old version of PMACDC or fix the package
+result_opf_ac = _PMACDC.solve_acdcopf(data_5_acdc,ACPPowerModel,ipopt; setting = s)
+result_opf_lpac = _PMACDC.solve_acdcopf(data_5_acdc,LPACCPowerModel,ipopt; setting = s)
 
 #######################################################################################
 ## Busbar splitting models ##
@@ -46,7 +50,7 @@ data_busbars_ac_split_5_acdc_dc = deepcopy(data_5_acdc)
 data_busbars_ac_split_5_acdc_more_buses = deepcopy(data_5_acdc)
 
 # Selecting which busbars are split
-splitted_bus_ac = [1,2,3,4,5]
+splitted_bus_ac = 2
 splitted_bus_dc = 2
 
 # Preparing data
@@ -63,7 +67,10 @@ ac_bs_dc_ref = deepcopy(data_busbars_ac_split_5_acdc_dc)
 ac_bs_ac_dc_ref = deepcopy(data_busbars_ac_split_5_acdc_more_buses)
 
 # Grid topology optimization models
+#result_switches_ac_ac_ref  = _PMTP.run_acdcsw_AC(ac_bs_ac_ref,ACPPowerModel,juniper)
 result_switches_lpac_ac_ref  = _PMTP.run_acdcsw_AC(ac_bs_ac_ref,LPACCPowerModel,gurobi)
+result_switches_lpac_ac_droop_ref  = _PMTP.run_acdcsw_AC_droop(ac_bs_ac_ref,LPACCPowerModel,gurobi)
+
 result_switches_lpac_dc_ref = _PMTP.run_acdcsw_DC(ac_bs_dc_ref,LPACCPowerModel,gurobi)
 result_switches_lpac_ac_dc_ref  = _PMTP.run_acdcsw_AC_DC(ac_bs_ac_dc_ref,LPACCPowerModel,gurobi)
 

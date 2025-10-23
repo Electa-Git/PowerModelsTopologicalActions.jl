@@ -10,7 +10,7 @@ export run_acdcsw_AC_grid_sp
 "ACDC opf with controllable switches in AC busbar splitting configuration for AC/DC grids"
 function run_acdcsw_AC(file, model_constructor, optimizer; kwargs...)
     #return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!,_PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!], kwargs...)
-    return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!,_PM.ref_add_on_off_va_bounds!], kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, build_acdcsw_AC; ref_extensions=[_PMACDC.add_ref_dcgrid!, _PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_gendc!,_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
 ""
@@ -19,6 +19,7 @@ function build_acdcsw_AC(pm::_PM.AbstractPowerModel)
     _PM.variable_bus_voltage(pm)
     _PM.variable_gen_power(pm)
     _PM.variable_branch_power(pm)
+    _PM.variable_storage_power(pm)
 
     variable_switch_indicator(pm) # binary variable to indicate the status of an ac switch
     variable_switch_power(pm) # variable to indicate the power flowing through an ac switch (if closed)
