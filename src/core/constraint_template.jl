@@ -301,6 +301,15 @@ function constraint_dc_switch_thermal_limit(pm::_PM.AbstractPowerModel, i::Int; 
     end
 end
 
+function constraint_dc_switch_thermal_limit_sw(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
+    switch = _PM.ref(pm, nw, :dcswitch, i)
+
+    if haskey(switch, "thermal_rating")
+        f_idx = (i, switch["f_busdc"], switch["t_busdc"])
+        constraint_dc_switch_thermal_limit_sw(pm, nw, f_idx, switch["thermal_rating"])
+    end
+end
+
 function constraint_switch_power_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     switch = _PM.ref(pm, nw, :switch, i)
     f_idx = (i, switch["f_bus"], switch["t_bus"])
