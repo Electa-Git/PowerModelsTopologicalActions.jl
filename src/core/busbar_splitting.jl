@@ -251,9 +251,10 @@ function DC_busbars_split(data,bus_to_be_split)
     else
         for i in keys(data["busdc"])
             data["busdc"]["$i"]["split"] = false
-            data["bus"]["$i"]["ZIL"] = false
+            data["busdc"]["$i"]["ZIL"] = false
         end
         for n in bus_to_be_split
+            println("Adding true to $n")
             data["busdc"]["$n"]["split"] = true
             data["busdc"]["$n"]["ZIL"] = true
         end
@@ -263,10 +264,14 @@ function DC_busbars_split(data,bus_to_be_split)
     n_buses_original_dc = maximum([bus["index"] for (b, bus) in data["busdc"]]) 
     count_dc = 0
     for (b_id,b) in data["busdc"] 
+        println("Bus DC: $(b_id)")
+        println("n_buses_original_dc: $(n_buses_original_dc)")
         if b["split"] == true && parse(Int64,b_id) <= n_buses_original_dc # make sure we include only the original buses
+            println("Splitting DC busbar number: $(b_id)")
             count_dc += 1
             b["busdc_split"] = deepcopy(b["index"])
             added_bus_dc = n_buses_original_dc + count_dc
+            println("Added DC busbar number: $(added_bus_dc)")
             data["busdc"]["$added_bus_dc"] = deepcopy(b)
             data["busdc"]["$added_bus_dc"]["busdc_i"] = added_bus_dc
             data["busdc"]["$added_bus_dc"]["source_id"][2] = added_bus_dc 
@@ -304,6 +309,7 @@ function DC_busbars_split(data,bus_to_be_split)
         end
     end
     
+
     data["dcswitch"] = Dict{String,Any}()
     # Adding the Zero Impedance Line (ZIL) through a switch between the split buses
     switch_id = 0
@@ -496,6 +502,29 @@ function compute_couples_of_dcswitches(data)
     eliminate_duplicates_couple_of_switches(switch_couples)
     return switch_couples
 end
+
+function compute_couples_of_dcswitches_mc(data)
+    switch_couples = Dict{String,Any}()
+    for (sw_id,sw) in data["dcswitch"]
+        for l in eachindex(data["dcswitch"])
+            if (haskey(sw, "auxiliary") && haskey(data["dcswitch"][l], "auxiliary")) && (sw["auxiliary"] == data["dcswitch"][l]["auxiliary"]) && (sw["original"] == data["dcswitch"][l]["original"]) && (sw["index"] != data["dcswitch"][l]["index"]) && (sw["busdc_split"] == data["dcswitch"][l]["busdc_split"]) && (sw["terminal"] == data["dcswitch"][l]["terminal"])
+                switch_couples["$sw_id"] = Dict{String,Any}()
+                switch_couples["$sw_id"]["f_sw"] = deepcopy(sw["index"])
+                switch_couples["$sw_id"]["t_sw"] = deepcopy(data["dcswitch"][l]["index"])
+                switch_couples["$sw_id"]["busdc_split"] = deepcopy(data["dcswitch"][l]["busdc_split"])
+                switch_couples["$sw_id"]["terminal"] = deepcopy(data["dcswitch"][l]["terminal"])
+                for (s_id,s) in data["dcswitch"] 
+                    if !(haskey(s, "auxiliary")) && haskey(s,"ZIL") && s["busdc_split"] == switch_couples["$sw_id"]["busdc_split"] && s["terminal"] == switch_couples["$sw_id"]["terminal"]
+                        switch_couples["$sw_id"]["dcswitch_split"] = deepcopy(s["index"])
+                    end
+                end
+            end
+        end
+    end
+    eliminate_duplicates_couple_of_switches(switch_couples)
+    return switch_couples
+end
+
 
 function AC_busbar_split_AC_grid(data,bus_to_be_split) 
     min_bus_original = minimum([bus["index"] for (b, bus) in data["bus"]]) 
@@ -1236,6 +1265,7 @@ function DC_busbars_split_multiconductor(data,bus_to_be_split)
             for p in poles
                 cv["busdc_i"]["$p"] = deepcopy(bus_dc_i_helper)
             end
+
             for i in eachindex(extremes_ZIL_dc)
                 n_buses_dc = maximum([bus["index"] for (b, bus) in data["busdc"]])
                 p = first(poles)
@@ -1299,7 +1329,260 @@ function DC_busbars_split_multiconductor(data,bus_to_be_split)
         end
     end
     # The total number of switches is sum forall b in B of (2∗nb +1) where B is the number of substations being split and nb is the number of grid elements connected to each substation
-    dcswitch_couples = compute_couples_of_dcswitches(data) # using the function to check the couples of switches linking each grid element to both parts of the split busbar  
+    dcswitch_couples = compute_couples_of_dcswitches_mc(data) # using the function to check the couples of switches linking each grid element to both parts of the split busbar  
+    data["switch_couples"] = Dict{String,Any}()
+    data["dcswitch_couples"] = Dict{String,Any}()
+    data["dcswitch_couples"] = deepcopy(dcswitch_couples)
+    return data, dcswitch_couples, extremes_ZIL_dc
+end
+
+function DC_busbars_split_multiconductor_updated(data,bus_to_be_split) 
+    min_bus_original = minimum([bus["index"] for (b, bus) in data["busdc"]]) 
+    # Adding a new key to indicate which bus can be split + ZIL
+    if length(bus_to_be_split) == 1
+        for i in keys(data["busdc"])
+            if parse(Int64,i) != bus_to_be_split
+                data["busdc"]["$i"]["split"] = false
+            end
+        end
+        data["busdc"]["$bus_to_be_split"]["split"] = true
+        data["busdc"]["$bus_to_be_split"]["ZIL"] = true
+    else
+        for i in keys(data["busdc"])
+            #if parse(Int64,i) != n #&& !haskey(data["busdc"][i],"ZIL")
+                data["busdc"]["$i"]["split"] = false
+                data["busdc"]["$i"]["ZIL"] = false
+            #end
+        end
+        for n in bus_to_be_split # selecting only split buses
+            data["busdc"]["$n"]["split"] = true
+            data["busdc"]["$n"]["ZIL"] = true
+        end
+    end
+
+    # Adding a new bus to represent the split, basing on "split" == true indicated before
+    n_buses_original_dc = maximum([bus["index"] for (b, bus) in data["busdc"]]) 
+    count_dc = 0
+    for (b_id,b) in data["busdc"] 
+        if b["split"] == true && parse(Int64,b_id) <= n_buses_original_dc # make sure we include only the original buses
+            count_dc += 1
+            added_bus_dc = n_buses_original_dc + count_dc
+            data["busdc"]["$added_bus_dc"] = deepcopy(b)
+            data["busdc"]["$added_bus_dc"]["busdc_i"] = added_bus_dc
+            data["busdc"]["$added_bus_dc"]["busdc_split"] = deepcopy(b["index"]) # indicating which is the original bus being split and that the bus is created from a split
+            data["busdc"]["$added_bus_dc"]["source_id"][2] = added_bus_dc 
+            data["busdc"]["$added_bus_dc"]["index"] = added_bus_dc
+            data["busdc"]["$added_bus_dc"]["split"] = false
+            data["busdc"]["$added_bus_dc"]["ZIL"] = true # indicating that there is a ZIL connected to the bus
+        end
+    end 
+    
+    # Creating a dictionary with the split buses -> keys are the original bus being split, the elements of the vector are the two buses linked by the ZIL
+    extremes_ZIL_dc = Dict{String,Any}()
+    for (b_id,b) in data["busdc"]
+        if b["split"] == true #&& !haskey(extremes_ZIL_dc,b["busdc_split"]) # isolating only the original buses being split
+            extremes_ZIL_dc["$(b["index"])"] = Dict{String,Any}()
+            for terminal in keys(b["Vdcmax"])
+                extremes_ZIL_dc["$(b["index"])"]["$terminal"] = []
+            end
+        end
+    end
+    
+    for b in eachindex(data["busdc"])#1:length(data["bus"])
+        #if haskey(data["busdc"]["$b"],"busdc_split")
+            for i in eachindex(extremes_ZIL_dc)
+                if data["busdc"]["$b"]["index"] == parse(Int64,i) && data["busdc"]["$b"]["index"] <= n_buses_original_dc  # counting only the buses related to the bus split, pushing them to the keys in the dictionary
+                    terminals = keys(data["busdc"]["$b"]["Vdcmax"])
+                    for terminal in terminals
+                        push!(extremes_ZIL_dc["$(data["busdc"]["$b"]["index"])"]["$terminal"],data["busdc"]["$b"]["index"])
+                    end
+                end
+            end
+        #end
+    end
+    for b in eachindex(data["busdc"])#1:length(data["busdc"])
+        if haskey(data["busdc"]["$b"],"busdc_split")
+            for i in eachindex(extremes_ZIL_dc)
+                if data["busdc"]["$b"]["busdc_split"] == parse(Int64,i) && data["busdc"]["$b"]["index"] > n_buses_original_dc  # counting only the buses related to the bus split, pushing them to the keys in the dictionary
+                    terminals = keys(data["busdc"]["$b"]["Vdcmax"])
+                    for terminal in terminals
+                        push!(extremes_ZIL_dc["$(data["busdc"]["$b"]["busdc_split"])"]["$terminal"],data["busdc"]["$b"]["index"])
+                    end
+                end
+            end
+        end
+    end
+    
+    data["dcswitch"] = Dict{String,Any}()
+    # Adding the Zero Impedance Line (ZIL) through a switch between the split buses, assuming there are no switches already existing in the test case. Using PowerModels format
+    switch_id = 0
+    for i in eachindex(extremes_ZIL_dc)
+        for terminal in eachindex(extremes_ZIL_dc[i])
+            switch_id += 1
+            data["dcswitch"]["$switch_id"] = Dict{String,Any}()
+            data["dcswitch"]["$switch_id"]["busdc_split"] = deepcopy(extremes_ZIL_dc[i][terminal][1]) # the original bus being split is always the first elements in the vector of each key of extremes_ZIL
+            data["dcswitch"]["$switch_id"]["f_busdc"] = deepcopy(extremes_ZIL_dc[i][terminal][1]) # assigning from and to bus to each switch. One switch for each key in the extremes_ZIL
+            data["dcswitch"]["$switch_id"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][terminal][2])
+            data["dcswitch"]["$switch_id"]["index"] = switch_id
+            data["dcswitch"]["$switch_id"]["terminal"] = terminal
+            data["dcswitch"]["$switch_id"]["psw"] = 100.0 # assuming a maximum active power for the switch
+            data["dcswitch"]["$switch_id"]["thermal_rating"] = 100.0
+            data["dcswitch"]["$switch_id"]["state"] = 1
+            data["dcswitch"]["$switch_id"]["status"] = 1
+            data["dcswitch"]["$switch_id"]["source_id"] = []
+            data["dcswitch"]["$switch_id"]["cost"] = 1.0
+            push!(data["dcswitch"]["$switch_id"]["source_id"],"dcswitch")
+            push!(data["dcswitch"]["$switch_id"]["source_id"],switch_id)
+            data["dcswitch"]["$switch_id"]["ZIL"] = true
+        end
+    end
+    
+    # Add a bus for each grid element connected to the bus being split
+    
+    # Branch dc 
+    for (br_id,br) in data["branchdc"] 
+        n_conductors = length(br["status"]) 
+        conductors = keys(br["status"])
+        #fbusdc_helper = deepcopy(br["fbusdc"])
+        #tbusdc_helper = deepcopy(br["tbusdc"])
+        #br["fbusdc"] = Dict{String,Any}()
+        #br["tbusdc"] = Dict{String,Any}()
+        #for c in conductors
+        #    br["fbusdc"]["$c"] = deepcopy(fbusdc_helper)
+        #    br["tbusdc"]["$c"] = deepcopy(tbusdc_helper)
+        #end
+
+        for i in eachindex(extremes_ZIL_dc)
+                n_buses_dc = maximum([bus["index"] for (b, bus) in data["busdc"]]) 
+                c = first(conductors)
+                if br["fbusdc"] == parse(Int64,i) && !haskey(br,"ZIL")
+                    added_branchdc_bus = n_buses_dc + 1
+                    data["busdc"]["$added_branchdc_bus"] = deepcopy(data["busdc"]["$min_bus_original"])
+                    data["busdc"]["$added_branchdc_bus"]["busdc_i"] = added_branchdc_bus 
+                    data["busdc"]["$added_branchdc_bus"]["index"] = added_branchdc_bus 
+                    data["busdc"]["$added_branchdc_bus"]["source_id"][2] = added_branchdc_bus 
+                    data["busdc"]["$added_branchdc_bus"]["auxiliary_bus"] = true 
+                    data["busdc"]["$added_branchdc_bus"]["original"] = deepcopy(parse(Int64,br_id))
+                    data["busdc"]["$added_branchdc_bus"]["auxiliary"] = "branchdc"
+                    data["busdc"]["$added_branchdc_bus"]["busdc_split"] = deepcopy(parse(Int64,i)) 
+                    data["busdc"]["$added_branchdc_bus"]["split"] = false
+                    #for cond in conductors
+                        br["fbusdc"] = added_branchdc_bus
+                    #end
+                    terminals = eachindex(data["busdc"]["$added_branchdc_bus"]["Vdcmax"])
+                    terminals_to_be_deleted = setdiff(terminals, conductors)
+                    println("Deleting terminals $terminals_to_be_deleted from auxiliary DC bus $added_branchdc_bus")
+                    for del in terminals_to_be_deleted
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Vdcmax"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Vdc"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Cdc"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Pdc"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Vdcmin"],del)
+                    end
+                elseif br["tbusdc"] == parse(Int64,i) && !haskey(br,"ZIL") # making sure this is not a ZIL, t_bus part. Redundant if, but useful if one decides to model the ZIL as a branch and not as a switch. 
+                    added_branchdc_bus = n_buses_dc + 1
+                    data["busdc"]["$added_branchdc_bus"] = deepcopy(data["busdc"]["$min_bus_original"])
+                    data["busdc"]["$added_branchdc_bus"]["busdc_i"] = added_branchdc_bus 
+                    data["busdc"]["$added_branchdc_bus"]["index"] = added_branchdc_bus 
+                    data["busdc"]["$added_branchdc_bus"]["source_id"][2] = added_branchdc_bus 
+                    data["busdc"]["$added_branchdc_bus"]["auxiliary_bus"] = true 
+                    data["busdc"]["$added_branchdc_bus"]["original"] = deepcopy(parse(Int64,br_id)) 
+                    data["busdc"]["$added_branchdc_bus"]["auxiliary"] = "branchdc"
+                    #data["busdc"]["$added_branchdc_bus"]["pole"] = "$(p)"
+                    data["busdc"]["$added_branchdc_bus"]["busdc_split"] = deepcopy(parse(Int64,i)) 
+                    data["busdc"]["$added_branchdc_bus"]["split"] = false
+                    #for cond in conductors
+                        br["tbusdc"] = added_branchdc_bus
+                    #end
+                    terminals = eachindex(data["busdc"]["$added_branchdc_bus"]["Vdcmax"])
+                    terminals_to_be_deleted = setdiff(terminals, conductors)
+                    println("Deleting terminals $terminals_to_be_deleted from auxiliary DC bus $added_branchdc_bus")
+                    for del in terminals_to_be_deleted
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Vdcmax"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Vdc"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Cdc"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Pdc"],del)
+                        delete!(data["busdc"]["$added_branchdc_bus"]["Vdcmin"],del)
+                    end
+                end
+        end
+    end
+    
+    # Multiconductor model for converters
+    if haskey(data,"convdc")
+        for (cv_id,cv) in data["convdc"]
+            n_poles = length(cv["Pacrated"]) 
+            poles = keys(cv["Pacrated"])
+            bus_dc_i_helper = deepcopy(cv["busdc_i"])
+            cv["busdc_i"] = Dict{String,Any}()
+            for p in poles
+                cv["busdc_i"]["$p"] = deepcopy(bus_dc_i_helper)
+            end
+
+            for i in eachindex(extremes_ZIL_dc)
+                n_buses_dc = maximum([bus["index"] for (b, bus) in data["busdc"]])
+                p = first(poles)
+                if cv["busdc_i"][p] == parse(Int64,i)
+                    added_conv_bus = n_buses_dc + 1
+                    data["busdc"]["$added_conv_bus"] = deepcopy(data["busdc"]["$min_bus_original"])
+                    data["busdc"]["$added_conv_bus"]["busdc_i"] = added_conv_bus 
+                    data["busdc"]["$added_conv_bus"]["index"] = added_conv_bus 
+                    data["busdc"]["$added_conv_bus"]["source_id"][2] = added_conv_bus 
+                    data["busdc"]["$added_conv_bus"]["auxiliary_bus"] = true 
+                    data["busdc"]["$added_conv_bus"]["original"] = deepcopy(parse(Int64,cv_id)) 
+                    data["busdc"]["$added_conv_bus"]["auxiliary"] = "convdc"
+                    data["busdc"]["$added_conv_bus"]["busdc_split"] = deepcopy(parse(Int64,i)) 
+                    data["busdc"]["$added_conv_bus"]["split"] = false
+                    for p in poles
+                        cv["busdc_i"][p] = added_conv_bus
+                        data["busdc"]["$added_conv_bus"]["pole"] = "$(p)"
+                    end
+                end
+            end
+        end
+    end
+    
+    
+    # Linking the auxiliary buses to both split buses with switches. Two switches for each new auxiliary bus that was created before (close to reality representation)
+    for (b_id,b) in data["busdc"]
+        # Connecting to the first bus
+        if haskey(b,"auxiliary_bus") #&& b["auxiliary_bus"] == true
+            for i in eachindex(extremes_ZIL_dc)
+                if b["busdc_split"] == parse(Int64,i)
+                    for terminal in eachindex(b["Vdcmax"])
+                        number_switches = length(data["dcswitch"])
+                        #first switch 
+                        added_switch_1 = number_switches + 1
+                        data["dcswitch"]["$added_switch_1"] = deepcopy(data["dcswitch"]["1"])
+                        data["dcswitch"]["$added_switch_1"]["cost"] = 0.0
+                        data["dcswitch"]["$added_switch_1"]["f_busdc"] = deepcopy(parse(Int64,b_id)) 
+                        data["dcswitch"]["$added_switch_1"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][terminal][1])
+                        data["dcswitch"]["$added_switch_1"]["index"] = added_switch_1 
+                        data["dcswitch"]["$added_switch_1"]["source_id"][2] = deepcopy(added_switch_1)
+                        data["dcswitch"]["$added_switch_1"]["auxiliary"] = deepcopy(b["auxiliary"]) 
+                        data["dcswitch"]["$added_switch_1"]["original"] = deepcopy(b["original"]) 
+                        data["dcswitch"]["$added_switch_1"]["busdc_split"] = parse(Int64,i) 
+                        data["dcswitch"]["$added_switch_1"]["terminal"] = deepcopy(terminal)
+
+                        #second switch
+                        added_switch_2 = added_switch_1 + 1
+                        data["dcswitch"]["$added_switch_2"] = deepcopy(data["dcswitch"]["1"])
+                        data["dcswitch"]["$added_switch_2"]["cost"] = 0.0
+                        data["dcswitch"]["$added_switch_2"]["f_busdc"] = deepcopy(parse(Int64,b_id)) 
+                        data["dcswitch"]["$added_switch_2"]["t_busdc"] = deepcopy(extremes_ZIL_dc[i][terminal][2])
+                        data["dcswitch"]["$added_switch_2"]["index"] = added_switch_2 
+                        data["dcswitch"]["$added_switch_2"]["source_id"][2] = deepcopy(added_switch_2)
+                        data["dcswitch"]["$added_switch_2"]["auxiliary"] = deepcopy(b["auxiliary"]) 
+                        data["dcswitch"]["$added_switch_2"]["original"] = deepcopy(b["original"]) 
+                        data["dcswitch"]["$added_switch_2"]["busdc_split"] = parse(Int64,i) 
+                        data["dcswitch"]["$added_switch_2"]["terminal"] = deepcopy(terminal)
+                    end
+                end
+            end
+        end
+    end
+    # The total number of switches is sum forall b in B of (2∗nb +1) where B is the number of substations being split and nb is the number of grid elements connected to each substation
+    dcswitch_couples = compute_couples_of_dcswitches_mc(data) # using the function to check the couples of switches linking each grid element to both parts of the split busbar  
     data["switch_couples"] = Dict{String,Any}()
     data["dcswitch_couples"] = Dict{String,Any}()
     data["dcswitch_couples"] = deepcopy(dcswitch_couples)

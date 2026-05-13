@@ -420,14 +420,14 @@ function prepare_AC_feasibility_check_DC_busbars(result_dict, input_dict, input_
                                 delete!(input_ac_check["dcswitch"],"$(switch_t["index"])")
                             elseif result_dict["solution"]["dcswitch"]["$(switch_t["index"])"]["status"] >= 0.9
                                 if aux_t == "convdc"
-                                    input_ac_check["convdc"]["$(orig_t)"]["busac_i"] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_bus"])
+                                    input_ac_check["convdc"]["$(orig_t)"]["busac_i"] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
                                     delete!(input_ac_check["busdc"],input_ac_check["convdc"]["$(orig_t)"]["busdc_i"])
                                     println("Element $aux_t $orig_t connected to $(input_ac_check["convdc"]["$(orig_t)"]["busdc_i"])")
                                 elseif aux_t == "branchdc" 
                                     if input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"] > orig_buses && input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"] # useful if both ends of a branch are busbars being split
-                                        input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_bus"])
+                                        input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
                                         delete!(input_ac_check["busdc"],input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"])
-                                        println("Element $aux_t $orig_t connected to $(input_ac_check["branchdc"]["$(orig_t)"]["f_busdc"])")
+                                        println("Element $aux_t $orig_t connected to $(input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"])")
                                     elseif input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"] > orig_buses && input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]
                                         input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
                                         delete!(input_ac_check["busdc"],input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"])
@@ -450,11 +450,11 @@ function prepare_AC_feasibility_check_DC_busbars(result_dict, input_dict, input_
                                     println("Element $aux_f $orig_f connected to $(input_ac_check["convdc"]["$(orig_f)"]["busdc_i"])")
                                 elseif aux_f == "branchdc" 
                                     if input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"] > orig_buses && input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"] # useful if both ends of a branch are busbars being split
-                                        input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_bus"])
-                                        delete!(input_ac_check["busdc"],input_ac_check["branchdc"]["$(orig_f)"]["f_bus"])
+                                        input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"],input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"])
                                         println("Element $aux_f $orig_f connected to $(input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"])")
                                     elseif input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"] > orig_buses && input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]
-                                        input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["tbusdc"])
+                                        input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
                                         delete!(input_ac_check["busdc"],input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"])
                                         println("Element $aux_f $orig_f connected to $(input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"])")
                                     end
@@ -957,6 +957,156 @@ function prepare_AC_feasibility_check_AC_busbars_multiconductor(result_dict, inp
                 end
                 input_ac_check["switch"] = Dict{String,Any}()
                 input_ac_check["switch_couples"] = Dict{String,Any}()    
+            end
+        end
+    end
+end
+
+function prepare_AC_feasibility_check_DC_busbars_multiconductor(result_dict, input_dict, input_ac_check, switch_couples, extremes_dict,input_base)
+    for (br_id,br) in input_dict["branchdc"] 
+        n_conductors = length(br["status"]) 
+        conductors = keys(br["status"])
+        fbusdc_helper = deepcopy(br["fbusdc"])
+        tbusdc_helper = deepcopy(br["tbusdc"])
+        br["fbusdc"] = Dict{String,Any}()
+        br["tbusdc"] = Dict{String,Any}()
+        for c in conductors
+            br["fbusdc"]["$c"] = deepcopy(fbusdc_helper)
+            br["tbusdc"]["$c"] = deepcopy(tbusdc_helper)
+        end
+    end
+    for (br_id,br) in input_ac_check["branchdc"] 
+        n_conductors = length(br["status"]) 
+        conductors = keys(br["status"])
+        fbusdc_helper = deepcopy(br["fbusdc"])
+        tbusdc_helper = deepcopy(br["tbusdc"])
+        br["fbusdc"] = Dict{String,Any}()
+        br["tbusdc"] = Dict{String,Any}()
+        for c in conductors
+            br["fbusdc"]["$c"] = deepcopy(fbusdc_helper)
+            br["tbusdc"]["$c"] = deepcopy(tbusdc_helper)
+        end
+    end
+    
+    orig_buses = maximum(parse.(Int, keys(input_base["busdc"]))) # maximum value before splitting (in case the buses are not in numerical order)
+    for (sw_id,sw) in input_dict["dcswitch"]
+        if !haskey(sw,"auxiliary")
+            println("SWITCH $sw_id, BUS from $(sw["f_busdc"]), BUS to $(sw["t_busdc"])")
+            if haskey(result_dict["solution"],"dcswitch")
+                if result_dict["solution"]["dcswitch"][sw_id]["status"] >= 0.9 # Just reconnecting stuff  
+                    println("Switch $sw_id is closed, Connecting everything back, no busbar splitting on bus $(sw["busdc_split"])")
+                    for l in keys(switch_couples)
+                        #if haskey(switch_couples,sw_id) && switch_couples[l]["bus_split"] == sw["bus_split"] -> wrong, you are checking the ZIL sw here
+                        if (switch_couples[l]["busdc_split"] == sw["busdc_split"]) && (switch_couples[l]["terminal"] == sw["terminal"]) # coupling the switch couple to their split bus, if it closed, just connect everything back to the original switch
+                            println("SWITCH COUPLE IS $l")
+                            switch_t = deepcopy(input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"])
+                            switch_f = deepcopy(input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"])
+
+                            if switch_t["t_busdc"] == switch_couples[l]["busdc_split"]
+                                aux_t = switch_t["auxiliary"]
+                                orig_t = switch_t["original"]
+                                terminal_t = switch_t["terminal"]
+                                println("Element $aux_t $orig_t, terminal $terminal_t")
+                                if aux_t == "convdc"
+                                    input_ac_check["convdc"]["$(orig_t)"]["busdc_i"][terminal_t] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
+                                    delete!(input_ac_check["busdc"]["$(nput_ac_check["convdc"]["$(orig_t)"]["busdc_i"][terminal_t])"][terminal_t],terminal_t)
+                                    println("Element $aux_t $orig_t, pole $terminal_t connected to $(input_ac_check["convdc"]["$(orig_t)"]["busdc_i"][terminal_t])")
+                                elseif aux_t == "branchdc" 
+                                    if input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t] > orig_buses && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]) && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["terminal"] == switch_couples[l]["terminal"]) # useful if both ends of a branch are busbars being split
+                                        input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t])"],terminal_t)
+                                        println("Element $aux_t $orig_t connected to $(input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t])")
+                                    elseif input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t] > orig_buses && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]) && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["terminal"] == switch_couples[l]["terminal"])
+                                        input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t])"],terminal_t)
+                                        println("Element $aux_t $orig_t connected to $(input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t])")
+                                    end
+                                end
+                            elseif switch_f["t_busdc"] == switch_couples[l]["busdc_split"]
+                                aux_f = switch_f["auxiliary"]
+                                orig_f = switch_f["original"]
+                                terminal_f = switch_f["terminal"]
+                                println("Element $aux_f $orig_f")
+                                if aux_f == "convdc"
+                                    input_ac_check["convdc"]["$(orig_f)"]["busdc_i"] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
+                                    delete!(input_ac_check["busdc"]["$(input_ac_check["convdc"]["$(orig_f)"]["busdc_i"][terminal_f])"],terminal_f)
+                                    println("Element $aux_f $orig_f, pole $terminal_f connected to $(input_ac_check["convdc"]["$(orig_f)"]["busdc_i"][terminal_f])")
+                                elseif aux_f == "branchdc" 
+                                    if input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f] > orig_buses && (input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]) && (input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["terminal"] == switch_couples[l]["terminal"]) # useful if both ends of a branch are busbars being split
+                                        input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f])"],terminal_f)
+                                        println("Element $aux_f $orig_f, pole $terminal_f connected to $(input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f])")
+                                    elseif input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f] > orig_buses && (input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]) && (input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["terminal"] == switch_couples[l]["terminal"])
+                                        input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f])"],terminal_f)
+                                        println("Element $aux_f $orig_f, pole $terminal_f connected to $(input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f])")
+                                    end
+                                end
+                            end
+                        end
+                    end
+                elseif result_dict["solution"]["dcswitch"][sw_id]["status"] <= 0.1 # Connect elements to the right bus
+                    println("Switch $sw_id is open, busbar splitting on bus $(sw["busdc_split"])")
+                    delete!(input_ac_check["dcswitch"],sw_id)
+                    for l in keys(switch_couples)
+                        if switch_couples[l]["busdc_split"] == sw["busdc_split"] # coupling the switch couple to their split bus
+                            println("SWITCH COUPLE IS $l")
+                            switch_t = deepcopy(input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]) 
+                            aux_t = switch_t["auxiliary"]
+                            orig_t = switch_t["original"]
+                            terminal_t = switch_t["terminal"]
+                            println("Element $aux_t $orig_t, pole $terminal_t")
+                            if result_dict["solution"]["dcswitch"]["$(switch_t["index"])"]["status"] <= 0.1
+                                println("Deleting switch $(switch_t["index"])")
+                                delete!(input_ac_check["dcswitch"],"$(switch_t["index"])")
+                            elseif result_dict["solution"]["dcswitch"]["$(switch_t["index"])"]["status"] >= 0.9
+                                if aux_t == "convdc"
+                                    input_ac_check["convdc"]["$(orig_t)"]["busac_i"] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
+                                    delete!(input_ac_check["busdc"]["$(input_ac_check["convdc"]["$(orig_t)"]["busdc_i"][terminal_t])"],terminal_t)
+                                    println("Element $aux_t $orig_t, pole $terminal_t connected to $(input_ac_check["convdc"]["$(orig_t)"]["busdc_i"][terminal_t])")
+                                elseif aux_t == "branchdc" 
+                                    if input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t] > orig_buses && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]) && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["terminal"] == switch_couples[l]["terminal"]) # useful if both ends of a branch are busbars being split
+                                        input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t])"],terminal_t)
+                                        println("Element $aux_t $orig_t, pole $terminal_t connected to $(input_ac_check["branchdc"]["$(orig_t)"]["fbusdc"][terminal_t])")
+                                    elseif input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t] > orig_buses && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]) && (input_dict["dcswitch"]["$(switch_couples["$l"]["t_sw"])"]["terminal"] == switch_couples[l]["terminal"])
+                                        input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t] = deepcopy(input_dict["dcswitch"]["$(switch_t["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t])"],terminal_t)
+                                        println("Element $aux_t $orig_t, pole $terminal_t connected to $(input_ac_check["branchdc"]["$(orig_t)"]["tbusdc"][terminal_t])")
+                                    end
+                                end
+                            end
+                        
+                            switch_f = deepcopy(input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]) 
+                            aux_f = switch_f["auxiliary"]
+                            orig_f = switch_f["original"]
+                            terminal_f = switch_f["original"]
+                            println("Element $aux_f $orig_f")
+                            if result_dict["solution"]["dcswitch"]["$(switch_f["index"])"]["status"] <= 0.1
+                                println("Deleting switch $(switch_f["index"])")
+                                delete!(input_ac_check["dcswitch"],"$(switch_f["index"])")
+                            elseif result_dict["solution"]["dcswitch"]["$(switch_f["index"])"]["status"] >= 0.9
+                                if aux_f == "convdc"
+                                    input_ac_check["convdc"]["$(orig_f)"]["busdc_i"] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
+                                    delete!(input_ac_check["busdc"]["$(input_ac_check["convdc"]["$(orig_f)"]["busdc_i"][terminal_f])"],terminal_f)
+                                    println("Element $aux_f $orig_f, pole $terminal_f connected to $(input_ac_check["convdc"]["$(orig_f)"]["busdc_i"][terminal_f])")
+                                elseif aux_f == "branchdc" 
+                                    if input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f] > orig_buses && input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"] # useful if both ends of a branch are busbars being split
+                                        input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f])"],terminal_f)
+                                        println("Element $aux_f $orig_f, pole $terminal_f connected to $(input_ac_check["branchdc"]["$(orig_f)"]["fbusdc"][terminal_f])")
+                                    elseif input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f] > orig_buses && input_dict["dcswitch"]["$(switch_couples["$l"]["f_sw"])"]["busdc_split"] == switch_couples[l]["busdc_split"]
+                                        input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f] = deepcopy(input_dict["dcswitch"]["$(switch_f["index"])"]["t_busdc"])
+                                        delete!(input_ac_check["busdc"]["$(input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f])"],terminal_f)
+                                        println("Element $aux_f $orig_f, pole $terminal_f connected to $(input_ac_check["branchdc"]["$(orig_f)"]["tbusdc"][terminal_f])")
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                input_ac_check["dcswitch"] = Dict{String,Any}()
+                input_ac_check["dcswitch_couples"] = Dict{String,Any}()
             end
         end
     end

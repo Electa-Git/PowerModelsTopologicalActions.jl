@@ -104,11 +104,16 @@ function constraint_switch_thermal_limit_dc(pm::_PM.AbstractPowerModel, n::Int, 
 end
 
 function constraint_dc_switch_thermal_limit(pm::_PM.AbstractPowerModel, n::Int, f_idx, rating)
-    psw = _PM.var(pm, n, :p_dc_sw_mc, f_idx)
+    psw = _PM.var(pm, n, :p_dc_sw, f_idx)
 
     JuMP.@constraint(pm.model, psw <= rating)
 end
 
+function constraint_dc_switch_thermal_limit_mc(pm::_PM.AbstractPowerModel, n::Int, f_idx, rating)
+    psw = _PM.var(pm, n, :p_dc_sw_mc, f_idx)
+
+    JuMP.@constraint(pm.model, psw <= rating)
+end
 
 
 function constraint_dc_switch_state_open(pm::_PM.AbstractPowerModel, n::Int, f_idx)
@@ -268,16 +273,27 @@ function constraint_BS_OTS_branch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2)
     end
 end
 
-function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2, pf, pt, qf, qt ,sw,aux)
+function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2)
     z_1 = _PM.var(pm, n, :z_dcswitch, i_1)
     z_2 = _PM.var(pm, n, :z_dcswitch, i_2)
-    pf_ = _PM.var(pm, n, :p_dcgrid, pf)
-    pt_ = _PM.var(pm, n, :p_dcgrid, pt)
+    branch_dict = _PM.ref(pm, n, :branchdc)
+    f_sw = _PM.ref(pm, n, :dcswitch, i_1)
+    t_sw = _PM.ref(pm, n, :dcswitch, i_2)
+    aux = f_sw["auxiliary"]
+    orig = f_sw["original"]
 
-    JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*10)
-    JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*10)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pf_)
-    JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pt_)
+    if aux == "branchdc"
+        pf = (branch_dict[orig]["index"],branch_dict[orig]["fbusdc"],branch_dict[orig]["tbusdc"])
+        pt = (branch_dict[orig]["index"],branch_dict[orig]["tbusdc"],branch_dict[orig]["fbusdc"])
+
+        pf_ = _PM.var(pm, n, :p_dcgrid, pf)
+        pt_ = _PM.var(pm, n, :p_dcgrid, pt)
+    
+        JuMP.@constraint(pm.model, pf_ <= (z_1+z_2)*10)
+        JuMP.@constraint(pm.model, pt_ <= (z_1+z_2)*10)
+        JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pf_)
+        JuMP.@constraint(pm.model, - (z_1+z_2)*10 <= pt_)
+    end
 end
 
 function constraint_power_balance_dc_switch(pm::_PM.AbstractPowerModel, n::Int, i::Int, bus_arcs_dcgrid, bus_convs_dc, bus_arcs_sw_dc, pd)

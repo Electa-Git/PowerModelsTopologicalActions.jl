@@ -39,7 +39,7 @@ function build_acdcsw_DC(pm::_PM.AbstractPowerModel)
     end
 
     for i in _PM.ids(pm, :bus)
-        _PMACDC.constraint_power_balance_ac(pm, i)
+        constraint_power_balance_ac(pm, i)
     end
 
     for i in _PM.ids(pm, :dcswitch)
