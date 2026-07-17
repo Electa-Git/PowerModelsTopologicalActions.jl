@@ -76,11 +76,11 @@ function add_ref_dcgrid_dcswitch!(ref::Dict{Symbol,<:Any}, data::Dict{String,<:A
 
             # Bus converters for existing ac buses
             bus_convs_ac = Dict([(i, []) for (i,bus) in nw_ref[:bus]])
-            nw_ref[:bus_convs_ac] = _PMACDC.assign_bus_converters!(nw_ref[:convdc], bus_convs_ac, "busac_i")    
+            nw_ref[:bus_convs_ac] = _PMACDC._assign_bus_converters!(nw_ref[:convdc], bus_convs_ac, "busac_i")    
 
             # Bus converters for existing ac buses
             bus_convs_dc = Dict([(bus["busdc_i"], []) for (i,bus) in nw_ref[:busdc]])
-            nw_ref[:bus_convs_dc]= _PMACDC.assign_bus_converters!(nw_ref[:convdc], bus_convs_dc, "busdc_i") 
+            nw_ref[:bus_convs_dc]= _PMACDC._assign_bus_converters!(nw_ref[:convdc], bus_convs_dc, "busdc_i") 
 
             # Add DC reference buses
             ref_buses_dc = Dict{String, Any}()

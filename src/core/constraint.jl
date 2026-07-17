@@ -60,36 +60,7 @@ function constraint_branch_limit_on_off_dc_ots(pm::_PM.AbstractPowerModel, n::In
     JuMP.@constraint(pm.model,  p_to >= pmin * z)
 end
 
-function constraint_linearised_binary_variable(pm::_PM.AbstractPowerModel, n::Int, i, csi)
-    z = _PM.var(pm, n, :z_branch, i)
-    JuMP.@constraint(pm.model,  z*(1-z) <= csi)
-end
-
-function constraint_linearised_binary_variable_DC_branch(pm::_PM.AbstractPowerModel, n::Int, i, csi)
-    z = _PM.var(pm, n, :z_ots_dc, i)
-    JuMP.@constraint(pm.model,  z*(1-z) <= csi)
-end
-
-function constraint_linearised_binary_variable_DC_conv(pm::_PM.AbstractPowerModel, n::Int, i, csi)
-    z = _PM.var(pm, n, :z_conv_dc, i)
-    JuMP.@constraint(pm.model,  z*(1-z) <= csi)
-end
-
 ###################### Busbar Splitting Constraints ############################
-function constraint_linearised_binary_variable_switch(pm::_PM.AbstractPowerModel, n::Int, i, csi)
-z = _PM.var(pm, n, :z_switch, i)
-JuMP.@constraint(pm.model,  z*(1-z) <= csi)
-end
-
-function constraint_linearised_binary_variable_switch_no_ZIL(pm::_PM.AbstractPowerModel, n::Int, i, csi)
-    sw = _PM.ref(pm, n, :switch, i)
-    if sw["ZIL"] == false
-        z = _PM.var(pm, n, :z_switch, i)
-        JuMP.@constraint(pm.model,  z*(1-z) <= csi)
-    end
-end
-
-# From PowerModels.jl
 function constraint_switch_thermal_limit(pm::_PM.AbstractPowerModel, n::Int, f_idx, rating)
     psw = _PM.var(pm, n, :psw, f_idx)
     qsw = _PM.var(pm, n, :qsw, f_idx)
@@ -114,14 +85,6 @@ function constraint_dc_switch_thermal_limit_mc(pm::_PM.AbstractPowerModel, n::In
 
     JuMP.@constraint(pm.model, psw <= rating)
 end
-
-
-function constraint_dc_switch_state_open(pm::_PM.AbstractPowerModel, n::Int, f_idx)
-    psw = _PM.var(pm, n, :psw, f_idx)
-
-    JuMP.@constraint(pm.model, psw == 0.0)
-end
-
 
 ""
 # TO be included in the DCPPowerModel formulation
@@ -176,15 +139,6 @@ function constraint_ZIL_switch(pm::_PM.AbstractPowerModel, n::Int, i_1, i_2)
     JuMP.@constraint(pm.model, z_1 <= (1.0 - z_2))
 end
 
-function constraint_ZIL_no_OTS(pm::_PM.AbstractPowerModel, n::Int, i_1, i_2, i_3) # Not needed
-    z_1 = _PM.var(pm, n, :z_switch, i_1)
-    z_2 = _PM.var(pm, n, :z_switch, i_2)
-    z_3 = _PM.var(pm, n, :z_switch, i_3)
-    
-    JuMP.@constraint(pm.model, 1.0 <= z_1 + z_2 + z_3)
-end
-
-
 function constraint_ZIL_dc_switch(pm::_PM.AbstractPowerModel, n::Int, i_1, i_2)
     z_1 = _PM.var(pm, n, :z_dcswitch, i_1)
     z_2 = _PM.var(pm, n, :z_dcswitch, i_2)
@@ -200,8 +154,6 @@ function constraint_exclusivity_switch_no_OTS(pm::_PM.AbstractPowerModel, n::Int
 end
 
 function constraint_voltage_angles_switch(pm::_PM.AbstractPowerModel, n::Int, i_1,bus_1, bus_2)
-    #z_1 = _PM.var(pm, n, :z_switch, i_1)
-    #z_2 = _PM.var(pm, n, :z_switch, i_2)
     z_ZIL = _PM.var(pm, n, :z_switch, i_1)
     va_1 = _PM.var(pm, n, :va, bus_1)
     vm_1 = _PM.var(pm, n, :vm, bus_1)
@@ -214,8 +166,6 @@ function constraint_voltage_angles_switch(pm::_PM.AbstractPowerModel, n::Int, i_
     JuMP.@constraint(pm.model, vm_1 - vm_2 <= 100*(1 - z_ZIL))
     JuMP.@constraint(pm.model, -100*(1 - z_ZIL) <= vm_1 - vm_2)
 
-    #JuMP.@constraint(pm.model, z_ZIL*va_1 == z_ZIL*va_2)
-    #JuMP.@constraint(pm.model, z_ZIL*vm_1 == z_ZIL*vm_2)
 end
 
 function constraint_voltage_angles_dc_switch(pm::_PM.AbstractPowerModel, n::Int, i_1, i_2, i_3, bus_1, bus_2)
@@ -296,11 +246,16 @@ function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, n::Int,i_1, i_2)
     end
 end
 
-function constraint_power_balance_dc_switch(pm::_PM.AbstractPowerModel, n::Int, i::Int, bus_arcs_dcgrid, bus_convs_dc, bus_arcs_sw_dc, pd)
+function constraint_power_balance_dc_switch(pm::_PM.AbstractPowerModel, n::Int, i::Int, bus_arcs_dcgrid, bus_convs_dc, bus_gens_dc, bus_arcs_sw_dc, pd)
     p_dcgrid = _PM.var(pm, n, :p_dcgrid)
     pconv_dc = _PM.var(pm, n, :pconv_dc)
+    pgdc = _PM.var(pm, n, :pgdc)
     psw = _PM.var(pm, n, :p_dc_sw)
-    JuMP.@constraint(pm.model, sum(p_dcgrid[a] for a in bus_arcs_dcgrid) + sum(pconv_dc[c] for c in bus_convs_dc) + sum(psw[sw] for sw in bus_arcs_sw_dc) == (-pd))
+    JuMP.@constraint(pm.model, sum(p_dcgrid[a] for a in bus_arcs_dcgrid) + sum(pconv_dc[c] for c in bus_convs_dc) + sum(psw[sw] for sw in bus_arcs_sw_dc) == (-pd) + sum(pgdc[g] for g in bus_gens_dc))
+
+    if _IM.report_duals(pm)
+        _PM.sol(pm, n, :busdc, i)[:lam_kcl_r] = cstr_p
+    end
 end
 
 function constraint_switch_difference_voltage_angles(pm::_PM.AbstractPowerModel, n::Int, switch, diff_vas)
@@ -310,16 +265,4 @@ function constraint_switch_difference_voltage_angles(pm::_PM.AbstractPowerModel,
 
     JuMP.@constraint(pm.model, va_f - va_t <= diff_vas)
     JuMP.@constraint(pm.model, - diff_vas <= va_f - va_t)
-end
-
-
-###################### Bilinear terms reformulation ############################
-function constraint_dc_switch_power_on_off_mc(pm::_PM.AbstractPowerModel, n::Int, i, f_idx)
-    psw = _PM.var(pm, n, :p_dc_sw, f_idx)
-    z = _PM.var(pm, n, :z_dcswitch, i)
-
-    psw_lb, psw_ub = _IM.variable_domain(psw)
-
-    JuMP.@constraint(pm.model, psw <= psw_ub*z)
-    JuMP.@constraint(pm.model, psw_lb*z <= psw)
 end

@@ -12,19 +12,6 @@ function constraint_dc_switch_state(pm::_PM.AbstractPowerModel, i::Int; nw::Int=
     end
 end
 
-"enforces controlable switch constraints"
-#function constraint_dc_switch_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
-#    switch = _PM.ref(pm, nw, :dcswitch, i)
-#
-#    f_idx = (i, switch["f_busdc"], switch["t_busdc"])
-#    vad_min = _PM.ref(pm, nw, :off_angmin)
-#    vad_max = _PM.ref(pm, nw, :off_angmax)
-#
-#    constraint_dc_switch_power_on_off(pm, nw, i, f_idx)
-#    constraint_dc_switch_voltage_on_off(pm, nw, i, switch["f_busdc"], switch["t_busdc"], vad_min, vad_max)
-#end
-
-"enforces an mva limit on the power flow over a switch"
 
 function constraint_power_balance_dc_ots(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     bus_arcs_dcgrid = _PM.ref(pm, nw, :bus_arcs_dcgrid, i)
@@ -36,9 +23,10 @@ end
 function constraint_power_balance_dc_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     bus_arcs_dcgrid = _PM.ref(pm, nw, :bus_arcs_dcgrid, i)
     bus_convs_dc = _PM.ref(pm, nw, :bus_convs_dc, i)
+    bus_gens_dc = _PM.ref(pm, nw, :bus_gens_dc, i)
     bus_arcs_sw_dc = _PM.ref(pm, nw, :bus_arcs_sw_dc, i)
     pd = _PM.ref(pm, nw, :busdc, i)["Pdc"]
-    constraint_power_balance_dc_switch(pm, nw, i, bus_arcs_dcgrid, bus_convs_dc, bus_arcs_sw_dc, pd)
+    constraint_power_balance_dc_switch(pm, nw, i, bus_arcs_dcgrid, bus_convs_dc, bus_gens_dc, bus_arcs_sw_dc, pd)
 end
 
 function constraint_converter_current_ots(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
@@ -74,22 +62,6 @@ function constraint_voltage_angle_difference_ots(pm::_PM.AbstractDCPModel, i::In
     #end
 end
 
-function constraint_linearised_binary_variable(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
-    csi_binaries = 10^(-5)
-    constraint_linearised_binary_variable(pm, nw, i, csi_binaries)
-end
-
-function constraint_linearised_binary_variable_DC_branch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
-    csi_binaries = 10^(-5)
-    constraint_linearised_binary_variable_DC_branch(pm, nw, i, csi_binaries)
-end
-
-function constraint_linearised_binary_variable_DC_conv(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
-    csi_binaries = 10^(-5)
-    constraint_linearised_binary_variable_DC_conv(pm, nw, i, csi_binaries)
-end
-
-# These need to be updated
 
 function thermal_constraint_ots_fr(pm::_PM.AbstractACPModel, i::Int, nw::Int=_PM.nw_id_default)
 
@@ -133,18 +105,6 @@ function constraint_ohms_ots_dc_branch(pm::_PM.AbstractPowerModel, i::Int; nw::I
 
     constraint_ohms_ots_dc_branch(pm, nw, f_bus, t_bus, f_idx, t_idx, branch["r"], p)
 end
-
-#function constraint_ohms_ots_dc_branch(pm::_PM.AbstractDCPModel, i::Int; nw::Int=_PM.nw_id_default)
-#    branch = _PM.ref(pm,nw,:branchdc,i)
-#    f_bus = branch["fbusdc"]
-#    t_bus = branch["tbusdc"]
-#    f_idx = (i, f_bus, t_bus)
-#    t_idx = (i, t_bus, f_bus)
-#
-#    p = _PM.ref(pm, nw, :dcpol)
-#
-#    constraint_ohms_ots_dc_branch(pm, nw, f_bus, t_bus, f_idx, t_idx, branch["r"], p)
-#end
 
 ## dc OTS
 function constraint_converter_losses_dc_ots(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
@@ -219,30 +179,14 @@ function constraint_conv_reactor_dc_ots(pm::_PM.AbstractPowerModel, i::Int; nw::
 end
 
 # Busbar splitting
-function constraint_linearised_binary_variable_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
-    csi_binaries = 10^(-5)
-    constraint_linearised_binary_variable_switch(pm, nw, i, csi_binaries)
-end
-
-function constraint_linearised_binary_variable_switch_no_ZIL(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
-    csi_binaries = 10^(-5)
-    constraint_linearised_binary_variable_switch_no_ZIL(pm, nw, i, csi_binaries)
-end
-
 function constraint_exclusivity_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     switch_couple = _PM.ref(pm, nw, :switch_couples, i)
-    #constraint_exclusivity_switch(pm, nw, switch_couple["f_sw"], switch_couple["t_sw"],switch_couple["switch_split"])
     constraint_exclusivity_switch(pm, nw, switch_couple["f_sw"], switch_couple["t_sw"])
 end
 
 function constraint_ZIL_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     switch_couple = _PM.ref(pm, nw, :switch_couples, i)
     constraint_ZIL_switch(pm, nw, switch_couple["t_sw"], switch_couple["switch_split"])
-end
-
-function constraint_ZIL_no_OTS(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
-    switch_couple = _PM.ref(pm, nw, :switch_couples, i)
-    constraint_ZIL_no_OTS(pm, nw, switch_couple["t_sw"], switch_couple["f_sw"], switch_couple["switch_split"])
 end
 
 function constraint_ZIL_dc_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
@@ -262,12 +206,7 @@ function constraint_BS_OTS_branch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_P
     branch_ = _PM.ref(pm, nw, :branch)
     single_switch = switch_[switch_couple["f_sw"]]
     branch_original = single_switch["original"]
-        constraint_BS_OTS_branch(pm, nw, switch_couple["f_sw"],switch_couple["t_sw"])
-    #(branch_[branch_original]["index"],branch_[branch_original]["f_bus"],branch_[branch_original]["t_bus"]),
-    #(branch_[branch_original]["index"],branch_[branch_original]["t_bus"],branch_[branch_original]["f_bus"]),
-    #(branch_[branch_original]["index"],branch_[branch_original]["f_bus"],branch_[branch_original]["t_bus"]),
-    #(branch_[branch_original]["index"],branch_[branch_original]["t_bus"],branch_[branch_original]["f_bus"]),
-    #single_switch,"auxiliary")
+    constraint_BS_OTS_branch(pm, nw, switch_couple["f_sw"],switch_couple["t_sw"])
 end
 
 function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
@@ -275,15 +214,9 @@ function constraint_BS_OTS_dcbranch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=
     switch_ = _PM.ref(pm, nw, :dcswitch)
     branch_ = _PM.ref(pm, nw, :branchdc)
     single_switch = switch_[switch_couple["f_sw"]]
-    #print(single_switch)
     branch_original = single_switch["original"]
 
-    #if single_switch["auxiliary"] == "branchdc"
-        constraint_BS_OTS_dcbranch(pm, nw, switch_couple["f_sw"],switch_couple["t_sw"]) 
-        #(branch_[branch_original]["index"],branch_[branch_original]["fbusdc"],branch_[branch_original]["tbusdc"]),
-        #(branch_[branch_original]["index"],branch_[branch_original]["tbusdc"],branch_[branch_original]["fbusdc"]),
-        #)
-    #end
+    constraint_BS_OTS_dcbranch(pm, nw, switch_couple["f_sw"],switch_couple["t_sw"]) 
 end
 
 "enforces an mva limit on the power flow over a switch"
@@ -440,8 +373,8 @@ end
 function constraint_power_balance_ac_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
     bus = _PM.ref(pm, nw, :bus, i)
     bus_arcs = _PM.ref(pm, nw, :bus_arcs, i)
-    #bus_arcs_pst = _PM.ref(pm, nw, :bus_arcs_pst, i)
-    #bus_arcs_sssc = _PM.ref(pm, nw, :bus_arcs_sssc, i)
+    bus_arcs_pst = _PM.ref(pm, nw, :bus_arcs_pst, i)
+    bus_arcs_sssc = _PM.ref(pm, nw, :bus_arcs_sssc, i)
     bus_arcs_sw = _PM.ref(pm, nw, :bus_arcs_sw, i)
     bus_gens = _PM.ref(pm, nw, :bus_gens, i)
     bus_loads = _PM.ref(pm, nw, :bus_loads, i)
@@ -449,17 +382,18 @@ function constraint_power_balance_ac_switch(pm::_PM.AbstractPowerModel, i::Int; 
     bus_storage = _PM.ref(pm, nw, :bus_storage, i)
     bus_convs_ac = _PM.ref(pm, nw, :bus_convs_ac, i)
 
-    #bus_pd = Dict(k => _PM.ref(pm, nw, :load, k, "pd") for k in bus_loads)
-    #bus_qd = Dict(k => _PM.ref(pm, nw, :load, k, "qd") for k in bus_loads)
-
-    pd = Dict(k => _PM.ref(pm, nw, :load, k, "pd") for k in bus_loads)
-    qd = Dict(k => _PM.ref(pm, nw, :load, k, "qd") for k in bus_loads)
+    bus_pd = Dict(k => _PM.ref(pm, nw, :load, k, "pd") for k in bus_loads)
+    bus_qd = Dict(k => _PM.ref(pm, nw, :load, k, "qd") for k in bus_loads)
 
     bus_gs = Dict(k => _PM.ref(pm, nw, :shunt, k, "gs") for k in bus_shunts)
     bus_bs = Dict(k => _PM.ref(pm, nw, :shunt, k, "bs") for k in bus_shunts)
 
+    #pd = Dict(k => _PM.ref(pm, nw, :load, k, "pd") for k in bus_loads)
+    #qd = Dict(k => _PM.ref(pm, nw, :load, k, "qd") for k in bus_loads)
+
+
     #constraint_power_balance_ac_switch(pm, nw, i, bus_arcs, bus_arcs_pst, bus_arcs_sssc, bus_convs_ac, bus_arcs_sw, bus_gens, bus_storage, bus_loads, bus_gs, bus_bs, bus_shunts, pd, qd)
-    constraint_power_balance_ac_switch(pm, nw, i, bus_arcs, bus_convs_ac, bus_arcs_sw, bus_gens, bus_storage, bus_loads, bus_gs, bus_bs, bus_shunts, pd, qd)
+    constraint_power_balance_ac_switch(pm, nw, i, bus_arcs, bus_arcs_pst, bus_arcs_sssc, bus_convs_ac, bus_arcs_sw, bus_gens, bus_storage, bus_loads, bus_gs, bus_bs)
 end
 
 function constraint_power_balance_ac_grid_ac_switch(pm::_PM.AbstractPowerModel, i::Int; nw::Int=_PM.nw_id_default)
