@@ -22,7 +22,7 @@ s_dual = Dict("output" => Dict("branch_flows" => true,"duals" => true), "conv_lo
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
 test_case_5_acdc = "case5_acdc.m"
-data_file_5_acdc = joinpath(@__DIR__,"data_sources",test_case_5_acdc)
+data_file_5_acdc = joinpath(dirname(@__DIR__),"test","data_sources",test_case_5_acdc)
 
 data_5_acdc = _PM.parse_file(data_file_5_acdc)
 _PMACDC.process_additional_data!(data_5_acdc)
@@ -68,9 +68,20 @@ result_switches_lpac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,LPACCPowerMode
 result_switches_lpac_dc_ref = _PMTP.run_acdc_BuS_DC(ac_bs_dc_ref,LPACCPowerModel,gurobi)
 result_switches_lpac_ac_dc_ref  = _PMTP.run_acdc_BuS_AC_DC(ac_bs_ac_dc_ref,LPACCPowerModel,gurobi)
 
+open(joinpath(@__DIR__,"results","result_AC_BuS_AC_busbar_2.json"), "w") do file
+    JSON.print(file, result_switches_ac_ac_ref)
+end
+open(joinpath(@__DIR__,"results","result_LPAC_BuS_AC_busbar_2.json"), "w") do file
+    JSON.print(file, result_switches_lpac_ac_ref)
+end
+
+
 # Feasibility checks
+result_AC_BuS_AC_busbar_2 = JSON.parsefile(joinpath(@__DIR__,"results","result_AC_BuS_AC_busbar_2.json"))
+result_LPAC_BuS_AC_busbar_2 = JSON.parsefile(joinpath(@__DIR__,"results","result_LPAC_BuS_AC_busbar_2.json"))
+
 feasibility_check_AC_BS_opf_fc = deepcopy(data_busbars_ac_split_5_acdc)
-_PMTP.prepare_AC_feasibility_check_AC_busbars(result_switches_lpac_ac_ref,data_busbars_ac_split_5_acdc,feasibility_check_AC_BS_opf_fc,switches_couples_ac_5,extremes_ZILs_5_ac,data_5_acdc)
+_PMTP.prepare_AC_feasibility_check_AC_busbars(result_LPAC_BuS_AC_busbar_2,data_busbars_ac_split_5_acdc,feasibility_check_AC_BS_opf_fc,switches_couples_ac_5,extremes_ZILs_5_ac,data_5_acdc)
 result_feasibility_check_ac = _PMACDC.solve_acdcopf(feasibility_check_AC_BS_opf_fc,ACPPowerModel,ipopt; setting = s)
 
 feasibility_check_DC_BS_opf_fc = deepcopy(data_busbars_ac_split_5_acdc_dc)
