@@ -7,7 +7,7 @@ export run_acdcsw_AC_DC_opf_sp
 function run_acdcsw_AC_opf(file::String, model_type::Type, solver; kwargs...)
     data = _PM.parse_file(file)
     PowerModelsACDC.process_additional_data!(data)
-    return run_acdcopf(data, model_type, solver; ref_extensions = [_PMACDC.add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
+    return run_acdcopf(data, model_type, solver; ref_extensions = [add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
 end
 
 ""
@@ -83,12 +83,12 @@ end
 function run_acdcsw_DC_opf(file::String, model_type::Type, solver; kwargs...)
     data = _PM.parse_file(file)
     PowerModelsACDC.process_additional_data!(data)
-    return run_acdcopf(data, model_type, solver; ref_extensions = [_PMACDC.add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
+    return run_acdcopf(data, model_type, solver; ref_extensions = [add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
 end
 
 ""
 function run_acdcsw_DC_opf(data::Dict{String,Any}, model_type::Type, solver; kwargs...)
-    return _PM.solve_model(data, model_type, solver, build_acdcsw_AC_opf; ref_extensions=[add_ref_dcgrid_dcswitch!,_PM.ref_add_on_off_va_bounds!], kwargs...)
+    return _PM.solve_model(data, model_type, solver, build_acdcsw_DC_opf; ref_extensions=[add_ref_dcgrid_dcswitch!,_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
 ""
@@ -159,7 +159,7 @@ end
 function run_acdcsw_AC_DC_opf(file::String, model_type::Type, solver; kwargs...)
     data = _PM.parse_file(file)
     PowerModelsACDC.process_additional_data!(data)
-    return run_acdcopf(data, model_type, solver; ref_extensions = [_PMACDC.add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
+    return run_acdcopf(data, model_type, solver; ref_extensions = [add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
 end
 
 ""
@@ -235,7 +235,7 @@ end
 function run_acdcsw_AC_DC_opf_sp(file::String, model_type::Type, solver; kwargs...)
     data = _PM.parse_file(file)
     PowerModelsACDC.process_additional_data!(data)
-    return run_acdcopf(data, model_type, solver; ref_extensions = [_PMACDC.add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
+    return run_acdcopf(data, model_type, solver; ref_extensions = [add_ref_dcgrid_dcswitch!,add_ref_dcgrid!], kwargs...)
 end
 
 ""

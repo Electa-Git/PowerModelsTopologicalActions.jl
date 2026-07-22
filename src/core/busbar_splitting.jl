@@ -806,7 +806,10 @@ function DC_busbars_split(data_original,bus_to_be_split)
     end
 
     dcswitch_couples = compute_couples_of_dcswitches(data)
-    data["switch_couples"] = Dict{String,Any}()
+    if haskey(data,"switch_couples")
+    else
+        data["switch_couples"] = Dict{String,Any}()
+    end
     data["dcswitch_couples"] = Dict{String,Any}()
     data["dcswitch_couples"] = deepcopy(dcswitch_couples)
     
