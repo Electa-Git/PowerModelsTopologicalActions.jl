@@ -134,6 +134,12 @@ The presence or absence of the `"auxiliary"` key is the discriminator used throu
 code — `calc_ac_switch_cost` charges only switches that lack it, and
 `compute_couples_of_switches` pairs only switches that have it.
 
+!!! warning "`ZIL` does not distinguish couplers from element switches"
+    Element switches are built with `deepcopy(data["switch"]["1"])`, a copy of the coupler,
+    so they **inherit `ZIL => true`**. The source lines that would reset it to `false` are
+    commented out. Filtering on `ZIL` therefore selects every switch. Always test
+    `!haskey(sw, "auxiliary")` to find couplers.
+
 !!! warning "Default ratings are effectively infinite"
     `psw`, `qsw`, and `thermal_rating` all default to `100.0` p.u., far above anything that
     binds on the bundled cases. If you want switch ratings to constrain the solution — for

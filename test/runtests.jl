@@ -67,9 +67,13 @@ const OBJ_BUS_FC  = 186.349   # LPAC-BuS on busbar 2, after AC feasibility check
 
             data_split, couples, extremes = _PMTP.AC_busbars_split(data, 2)
 
-            # One ZIL coupler per split busbar, two switches per moved element.
-            zils = [id for (id, sw) in data_split["switch"] if get(sw, "ZIL", false)]
-            @test length(zils) == 1
+            # One busbar coupler per split busbar, two switches per moved element.
+            #
+            # NOTE: the coupler is identified by the ABSENCE of the "auxiliary"
+            # key, not by ZIL. Element switches are deepcopied from the coupler
+            # and inherit ZIL => true, so ZIL is not a discriminator.
+            couplers = [id for (id, sw) in data_split["switch"] if !haskey(sw, "auxiliary")]
+            @test length(couplers) == 1
             @test length(data_split["switch"]) == 2 * length(couples) + 1
 
             # Every couple points at two distinct switches on the split busbar.
@@ -105,8 +109,8 @@ const OBJ_BUS_FC  = 186.349   # LPAC-BuS on busbar 2, after AC feasibility check
             data = load_case(CASE5)
             data_split, couples, _ = _PMTP.DC_busbars_split(data, 2)
 
-            zils = [id for (id, sw) in data_split["dcswitch"] if get(sw, "ZIL", false)]
-            @test length(zils) == 1
+            couplers = [id for (id, sw) in data_split["dcswitch"] if !haskey(sw, "auxiliary")]
+            @test length(couplers) == 1
             @test length(data_split["dcswitch"]) == 2 * length(couples) + 1
             @test !isempty(data_split["dcswitch_couples"])
         end
@@ -215,11 +219,11 @@ const OBJ_BUS_FC  = 186.349   # LPAC-BuS on busbar 2, after AC feasibility check
             data_split, _, _ = _PMTP.AC_busbars_split(data, 2)
             result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, JUNIPER)
 
-            zil_id = first(id for (id, sw) in data_split["switch"]
-                           if get(sw, "ZIL", false))
+            coupler_id = first(id for (id, sw) in data_split["switch"]
+                               if !haskey(sw, "auxiliary"))
 
             # Whatever the solver decides, the reported status must be binary.
-            status = result["solution"]["switch"][zil_id]["status"]
+            status = result["solution"]["switch"][coupler_id]["status"]
             @test isapprox(status, 0.0; atol = 0.1) || isapprox(status, 1.0; atol = 0.1)
         end
     end

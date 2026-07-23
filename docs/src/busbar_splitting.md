@@ -193,7 +193,7 @@ whether this penalty is swamping a small saving — you can adjust it per switch
 
 ```julia
 for (id, sw) in data_split["switch"]
-    get(sw, "ZIL", false) && (sw["cost"] = 0.1)
+    !haskey(sw, "auxiliary") && (sw["cost"] = 0.1)   # couplers only
 end
 ```
 
@@ -212,17 +212,24 @@ result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
 
 ```julia
 for (sw_id, sw) in result["solution"]["switch"]
-    status = sw["status"] < 0.1 ? "OPEN" : "closed"
-    is_zil = get(data_split["switch"][sw_id], "ZIL", false)
-    println("switch $sw_id ($(is_zil ? "coupler" : "element")): $status")
+    status     = sw["status"] < 0.1 ? "OPEN" : "closed"
+    is_coupler = !haskey(data_split["switch"][sw_id], "auxiliary")
+    println("switch $sw_id ($(is_coupler ? "coupler" : "element")): $status")
 end
 ```
 
 DC switches appear under `result["solution"]["dcswitch"]` with the same `status` key.
 
-**A busbar was actually split if and only if its coupler is open.** Auxiliary switches
-being open only tells you which side each element picked, or — if both switches of a couple
-are open — that the element was dropped from the network entirely.
+**A busbar was actually split if and only if its coupler is open.** Element switches being
+open only tells you which side each element picked, or — if both switches of a couple are
+open — that the element was dropped from the network entirely.
+
+!!! warning "Do not use the `ZIL` flag to identify the coupler"
+    Element switches are created with `deepcopy(data["switch"]["1"])` — a copy of the
+    coupler — so they **inherit `ZIL => true`**. The source lines that would reset it to
+    `false` are commented out. Every switch therefore reports `ZIL == true`, and filtering
+    on it selects all of them rather than just the coupler. Use the absence of the
+    `"auxiliary"` key instead, as above.
 
 ## Practical guidance
 
