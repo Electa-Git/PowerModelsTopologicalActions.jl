@@ -1,0 +1,8 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+PowerModels = "c36e90e8-916a-50a6-bd94-075b64ef4655"
+PowerModelsACDC = "ff45984e-d068-5f4c-9e32-c4133509d236"
+PowerModelsTopologicalActions = "aa9d2d61-8a5b-47cb-baca-6462e1811a24"
+
+[compat]
+Documenter = "1"
