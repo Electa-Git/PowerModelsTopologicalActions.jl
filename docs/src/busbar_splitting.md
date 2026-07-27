@@ -38,7 +38,7 @@ misleading answer.
 
 Stage 3 is skippable only when stage 2 used `ACPPowerModel`, since that formulation is
 already exact. For every relaxation and approximation it is mandatory — see
-[AC feasibility check](@ref) for why.
+[AC feasibility check](feasibility_check.md) for why.
 
 ## Stage 1: preparing the network
 
@@ -70,7 +70,7 @@ where `B` is the number of busbars being split and `n_b` the number of elements 
 busbar `b`. This grows fast, and it is the reason splitting every busbar in a large network
 is not practical.
 
-See [Data model](@ref) for the resulting dictionary layout and the meaning of every key the
+See [Data model](data_model.md) for the resulting dictionary layout and the meaning of every key the
 transformation adds.
 
 ### The returned tuple
@@ -114,7 +114,7 @@ run_acdc_BuS_AC_DC(data_split, model_constructor, optimizer; kwargs...)
 
 Choose the function matching the preparation you performed. `run_acdc_BuS_AC_DC` requires a
 network prepared by *both* `AC_busbars_split` and `DC_busbars_split`, applied in that order —
-see the warning in [Quick start](@ref).
+see the warning in [Quick start](quickstart.md).
 
 ### The constraint set
 
@@ -199,7 +199,7 @@ end
 
 ## Stage 3: checking AC feasibility
 
-Covered in full on the [AC feasibility check](@ref) page. In brief:
+Covered in full on the [AC feasibility check](feasibility_check.md) page. In brief:
 
 ```julia
 data_fc = deepcopy(data_split)
@@ -249,7 +249,7 @@ relaxation, is the formulation that actually finds beneficial splits.
 
 **Fix elements that cannot move.** In a real substation, some elements are hard-wired to one
 half. Modelling those as fixed rather than switchable removes two binaries each. The
-underlying data model supports it — see [Data model](@ref) — though there is no convenience
+underlying data model supports it — see [Data model](data_model.md) — though there is no convenience
 API for it yet.
 
 ## Limitations

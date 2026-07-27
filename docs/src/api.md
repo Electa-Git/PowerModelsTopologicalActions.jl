@@ -70,7 +70,7 @@ Busbar splitting on AC busbars. `data` must be a network prepared by `AC_busbars
 
 - `model_constructor` — `ACPPowerModel`, `SOCWRPowerModel`, `QCRMPowerModel`, or
   `LPACCPowerModel`
-- `optimizer` — matched to the formulation, see [Formulations](@ref)
+- `optimizer` — matched to the formulation, see [Formulations](formulations.md)
 
 Results at `result["solution"]["switch"][id]["status"]`.
 
@@ -99,7 +99,7 @@ Simultaneous AC and DC busbar splitting. Requires a network prepared by **both**
 
 !!! note "Call order matters"
     Call `AC_busbars_split` **before** `DC_busbars_split`. The reverse order clears
-    `data["dcswitch_couples"]`. See [Known issues and gotchas](@ref).
+    `data["dcswitch_couples"]`. See [Known issues and gotchas](known_issues.md).
 
 Model builder: `build_acdc_BuS_AC_DC`. Objective: `objective_min_fuel_cost_ac_dc_switch`.
 
@@ -118,7 +118,7 @@ Prepares a hybrid AC/DC network for AC busbar splitting. `bus_to_be_split` is an
 `Vector{Int}`. **Copies** its input.
 
 Returns the expanded network, the switch-couple dictionary, and a map from each split busbar
-to the indices of its two halves. See [Data model](@ref).
+to the indices of its two halves. See [Data model](data_model.md).
 
 Requires `data["switch"]` to exist and to be empty. Resets `data["dcswitch_couples"]` to an
 empty dictionary, so call this before `DC_busbars_split`, not after.
@@ -231,7 +231,7 @@ Reconstruct a fixed-topology network from a busbar-splitting result.
 
 Returns nothing meaningful; the output is the mutated third argument. Then solve
 `PowerModelsACDC.solve_acdcopf` on it. Verbose by design. See
-[AC feasibility check](@ref).
+[AC feasibility check](feasibility_check.md).
 
 ---
 

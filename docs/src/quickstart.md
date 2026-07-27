@@ -94,7 +94,7 @@ This returns three things:
 - `extremes_ZIL` — a map from each original busbar to the two bus indices its parts now
   occupy. Also needed in stage 3.
 
-See [Data model](@ref) for exactly what the transformation produces.
+See [Data model](data_model.md) for exactly what the transformation produces.
 
 To split several busbars, pass a vector:
 
@@ -192,7 +192,7 @@ result_both = _PMTP.run_acdc_BuS_AC_DC(data_both, LPACCPowerModel, gurobi)
     every DC exclusivity, ZIL, and BuS-OTS constraint, solving a different and
     over-optimistic problem without any error. `DC_busbars_split` preserves an existing
     `switch_couples`, so the AC-then-DC direction is safe. See
-    [Known issues and gotchas](@ref).
+    [Known issues and gotchas](known_issues.md).
 
 ## Choosing which busbar to split
 

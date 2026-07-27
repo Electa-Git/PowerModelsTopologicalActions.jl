@@ -76,7 +76,7 @@ Why it is the default:
 
 Being an approximation rather than a relaxation, its objective is neither an upper nor a
 lower bound on the true optimum, and its feasibility is not guaranteed. Always run the
-[AC feasibility check](@ref).
+[AC feasibility check](feasibility_check.md).
 
 ## DC approximation (`DCPPowerModel`)
 

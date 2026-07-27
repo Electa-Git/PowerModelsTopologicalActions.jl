@@ -180,7 +180,7 @@ duplicates.
 The model iterates `ids(pm, :switch_couples)` to post exclusivity, ZIL, and BuS-OTS
 constraints. **If this dictionary is empty, those constraints are silently not posted** and
 the model becomes meaningless while still solving happily. This is the failure mode behind
-the `switch_couples` warning in [Known issues and gotchas](@ref).
+the `switch_couples` warning in [Known issues and gotchas](known_issues.md).
 
 ## Fixing an element to one half
 

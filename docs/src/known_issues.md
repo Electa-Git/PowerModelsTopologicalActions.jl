@@ -141,7 +141,7 @@ contains no `@test` assertions, nothing calls it from `runtests.jl`, and its dat
 the case files actually live in `test/data_sources/`.
 
 Until that is wired up, validate changes against the published results in
-[Formulations](@ref). The 5-bus AC-OPF objective of 194.139 \$/h and the AC-BuS big-M result
+[Formulations](formulations.md). The 5-bus AC-OPF objective of 194.139 \$/h and the AC-BuS big-M result
 of 184.972 \$/h are good canaries.
 
 ### `src/prob/old_to_be_replaced/`

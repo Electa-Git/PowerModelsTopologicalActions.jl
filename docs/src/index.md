@@ -34,7 +34,7 @@ objects, and AC and DC actions can be optimized jointly in a single problem.
 | SOC relaxation | `SOCWRPowerModel` | MISOCP | W-space lifting |
 | QC relaxation | `QCRMPowerModel` | MIQCP | W + λ-space, McCormick envelopes |
 | LPAC approximation | `LPACCPowerModel` | MIQCP | Cold-start; keeps voltage magnitudes and reactive power |
-| DC approximation | `DCPPowerModel` | MILP | Partial support, see [Formulations](@ref) |
+| DC approximation | `DCPPowerModel` | MILP | Partial support, see [Formulations](formulations.md) |
 
 In practice the **LPAC formulation is the workhorse**: on the test cases reported in the
 reference paper it runs 10–200× faster than the exact MINLP while still producing
@@ -42,22 +42,22 @@ AC-feasible topologies.
 
 ## Where to start
 
-- [Installation](@ref) — getting the package and a solver stack running.
-- [Quick start](@ref) — a complete OTS and a complete BuS run on the 5-bus AC/DC case.
-- [Optimal transmission switching](@ref) — the OTS problem specifications.
-- [Busbar splitting](@ref) — the three-stage BuS workflow, which is the more involved one.
-- [Data model](@ref) — what `AC_busbars_split` actually does to your network dictionary.
-- [AC feasibility check](@ref) — how to verify that a relaxed or approximated topology is
+- [Installation](installation.md) — getting the package and a solver stack running.
+- [Quick start](quickstart.md) — a complete OTS and a complete BuS run on the 5-bus AC/DC case.
+- [Optimal transmission switching](ots.md) — the OTS problem specifications.
+- [Busbar splitting](busbar_splitting.md) — the three-stage BuS workflow, which is the more involved one.
+- [Data model](data_model.md) — what `AC_busbars_split` actually does to your network dictionary.
+- [AC feasibility check](feasibility_check.md) — how to verify that a relaxed or approximated topology is
   AC-feasible.
-- [API reference](@ref) — function-by-function listing.
-- [Known issues and gotchas](@ref) — read this before you spend a day debugging.
+- [API reference](api.md) — function-by-function listing.
+- [Known issues and gotchas](known_issues.md) — read this before you spend a day debugging.
 
 ## A note on maturity
 
 This is research code that accompanies a journal paper. It is capable and the models are
 sound, but it is not a hardened production library: `Pkg.test()` currently runs no
 assertions, one exported name does not resolve, and a few helper functions carry
-`DO NOT USE` markers in the source. The [Known issues and gotchas](@ref) page documents
+`DO NOT USE` markers in the source. The [Known issues and gotchas](known_issues.md) page documents
 every rough edge we are aware of, rather than leaving you to discover them.
 
 ## Citing
