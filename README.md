@@ -5,14 +5,11 @@
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-green.svg)](LICENSE)
 [![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.segan.2026.102182-blue)](https://doi.org/10.1016/j.segan.2026.102182)
  
-A Julia/JuMP package for **steady-state grid topology optimization in hybrid AC/DC power systems**. It computes which lines to de-energize (Optimal Transmission Switching, OTS) and how to reconfigure substations (Busbar Splitting, BuS) to minimize total generation cost, subject to the full physics of hybrid AC/DC grids.
+A Julia/JuMP package for **steady-state grid topology optimization in AC and hybrid AC/DC grids**. It computes which lines to de-energize (Optimal Transmission Switching, OTS) and how to reconfigure selected substations (Busbar Splitting, BuS) to minimize total generation costs in the system, subject to the full physics of hybrid AC/DC grids.
  
 Built on [PowerModels.jl](https://github.com/lanl-ansi/PowerModels.jl) and
-[PowerModelsACDC.jl](https://github.com/Electa-Git/PowerModelsACDC.jl).
- 
-This is the first package able to perform both OTS and busbar splitting on **either part**
-of a hybrid AC/DC grid. While OTS is well established for AC systems, busbar splitting
-remains largely unexplored — particularly on the DC side.
+[PowerModelsACDC.jl](https://github.com/Electa-Git/PowerModelsACDC.jl),
+this is the first package able to perform both OTS and busbar splitting on **either part** of a hybrid AC/DC grid. While OTS and BuS have been used for decades in AC grids, they remain largely unexplored on the DC side. Long story short, with this package, one can optimize the grid topology with OTS and BuS, with a deep focus on BuS.
  
 ## Capabilities
  
@@ -20,14 +17,21 @@ remains largely unexplored — particularly on the DC side.
  
 - AC / DC / combined AC-DC optimal transmission switching
 - AC / DC / combined AC-DC busbar splitting
-- Busbar splitting combined with OTS on the affected elements
-**Power flow formulations**
- 
+- Busbar splitting combined with OTS on selected busbars.
+
+## Power Flow formulations
+
+**Most refined**
 - AC polar coordinates — exact, MINLP
-- SOC relaxation (W-space) — MISOCP
-- QC relaxation (W + λ-space) — MIQCP
 - LPAC approximation (cold start) — MIQCP
+
+
+**To be further refined**
+- SOC relaxation — MISOCP
+- QC relaxation — MIQCP
 - DC approximation — MILP, partial support
+
+
 ## Installation
  
 ```julia
@@ -35,8 +39,7 @@ using Pkg
 Pkg.add(url = "https://github.com/Electa-Git/PowerModelsTopologicalActions.jl")
 ```
  
-Requires Julia ≥ 1.10 and a solver appropriate to your formulation — Juniper + Ipopt + a MIP
-solver for the exact MINLP, or Gurobi/Mosek/HiGHS for the relaxations and approximations.
+Requires Julia ≥ 1.10 and a solver appropriate to your formulation, e.g. MINLP formulation -> Juniper + Ipopt + a MIP solver for the exact MINLP, or Gurobi (recommended and supported)/Mosek/HiGHS for the LPAC approximation.
  
 ## Quick example
  
@@ -58,27 +61,24 @@ _PMACDC.process_additional_data!(data)
  
 # --- baseline ---
 result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
- 
-# --- optimal transmission switching ---
-result_ots = _PMTP.run_acdcots_AC_DC(data, ACPPowerModel, juniper; setting = s)
- 
+  
 # --- busbar splitting: prepare → solve → check ---
 data_split, switch_couples, extremes = _PMTP.AC_busbars_split(data, 2)
+
+![Representation of the proposed busbar splitting process.](docs/images/BuS_illustration_README.png)
+
 result_bus = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, gurobi)
  
 data_fc = deepcopy(data_split)
-_PMTP.prepare_AC_feasibility_check_AC_busbars(
-    result_bus, data_split, data_fc, switch_couples, extremes, data)
+_PMTP.prepare_AC_feasibility_check_AC_busbars(result_bus, data_split, data_fc, switch_couples, extremes, data)
 result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
  
 println("baseline:  ", result_opf["objective"])   # 194.139 $/h
 println("after BuS: ", result_fc["objective"])    # 186.349 $/h  → 4.0 % saving
 ```
  
-Busbar splitting always takes three stages: prepare the data, optimize, then verify the
-resulting topology is AC-feasible. The verification step is mandatory for every formulation
-except the exact `ACPPowerModel`.
- 
+Busbar splitting is organized in three stages: prepare the data, optimize and optionally verify the resulting topology is AC-feasible. 
+
 ## Documentation
  
 Full documentation is in [`docs/`](docs/src):
@@ -172,7 +172,7 @@ Contributions are welcome, particularly:
  
 ## Acknowledgements
  
-Developed as part of WP1 of the ETF DIRECTIONS project, funded by the FOD Economie of the Belgian Government.
- 
+Developed as part of WP1 of the [ETF DIRECTIONS project](https://etch.be/en/directions-design-protection-and-control-offshore-dc-power-grids-and-power-hubs), funded by the FOD Economie of the Belgian Government in which [Etch - Energy Transmission Competence Hub](https://etch.be/en) - EnergyVille and KU Leuven collaborated with Elia Group to explore the future of electrical energy hubs.
+
 Primary developer: Giacomo Bastianel ([@GiacomoBastianel](https://github.com/GiacomoBastianel)).
 Contributor: Marta Vanin ([@MartaVanin](https://github.com/MartaVanin)).
