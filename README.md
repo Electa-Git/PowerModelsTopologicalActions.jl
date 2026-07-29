@@ -10,6 +10,11 @@ A Julia/JuMP package for **steady-state grid topology optimization in AC and hyb
 Built on [PowerModels.jl](https://github.com/lanl-ansi/PowerModels.jl) and
 [PowerModelsACDC.jl](https://github.com/Electa-Git/PowerModelsACDC.jl),
 this is the first package able to perform both OTS and busbar splitting on **either part** of a hybrid AC/DC grid. While OTS and BuS have been used for decades in AC grids, they remain largely unexplored on the DC side. Long story short, with this package, one can optimize the grid topology with OTS and BuS, with a deep focus on BuS.
+
+An intuition behind BuS process is represented in the following figure:
+
+![Representation of the proposed busbar splitting process.](docs/images/BuS_illustration_README.png)
+
  
 ## Capabilities
  
@@ -64,8 +69,6 @@ result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
   
 # --- busbar splitting: prepare → solve → check ---
 data_split, switch_couples, extremes = _PMTP.AC_busbars_split(data, 2)
-
-![Representation of the proposed busbar splitting process.](docs/images/BuS_illustration_README.png)
 
 result_bus = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, gurobi)
  
