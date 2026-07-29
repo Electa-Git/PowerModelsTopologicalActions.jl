@@ -15,6 +15,7 @@ An intuition behind BuS process is represented in the following figure:
 
 ![Representation of the proposed busbar splitting process.](docs/images/BuS_illustration_README.png)
 
+The model output is the status (1 closed, 0 open) of the busbar coupler and each switch, together with all the decision variables usually related to optimal power flow simulations.
  
 ## Capabilities
  
