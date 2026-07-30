@@ -3,7 +3,7 @@
 ## Requirements
 
 - Julia ≥ 1.10
-- `PowerModels.jl` 0.21
+- `PowerModels.jl`
 - `PowerModelsACDC.jl`
 - At least one solver appropriate to the formulation you intend to use (see below)
 
@@ -36,18 +36,16 @@ using PowerModelsTopologicalActions; const _PMTP = PowerModelsTopologicalActions
 
 Which solver you need depends entirely on the formulation, because the formulation
 determines the problem class. Getting this pairing wrong is the single most common source
-of confusing failures.
+of confusing failures. I recommend using Gurobi for the solving the topology optimization models. 
+If you do not have access to it, I made available a test of the AC-feasibility check with some results obtained with Gurobi. 
+Using a free solver instead of Gurobi is still something which is work in progress.
 
 | Formulation | Problem class | Solver |
 |---|---|---|
-| `ACPPowerModel` | MINLP | [Juniper](https://github.com/lanl-ansi/Juniper.jl) wrapping an NLP solver and a MIP solver |
+| `ACPPowerModel` | MINLP | [Juniper](https://github.com/lanl-ansi/Juniper.jl) wrapping an NLP solver (Ipopt) and a MIP solver (Gurobi) |
 | `LPACCPowerModel` | MIQCP | Gurobi, or another MIQCP-capable solver |
-| `SOCWRPowerModel` | MISOCP | Gurobi, Mosek |
-| `QCRMPowerModel` | MIQCP | Gurobi |
-| `DCPPowerModel` | MILP | Gurobi, HiGHS, Cbc |
+|---|---|---|
 
-There is no open-source MINLP path that we would recommend for the exact AC models on
-anything but toy cases. Juniper + Ipopt + HiGHS will run, but expect it to be slow.
 
 ### A working solver stack
 
@@ -69,19 +67,8 @@ juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
               "time_limit" => 36000)
 ```
 
-Use `juniper` for `ACPPowerModel`, `gurobi` for everything else.
+Use `juniper` for `ACPPowerModel`, `gurobi` for everything else. `ipopt` is more stable than `gurobi` for the `LPACCPowerModel` simulation of the OPF model. `gurobi` should be used for every grid topology optimization model. 
 
-### Fully open-source alternative
-
-If you do not have a Gurobi licence, swap in HiGHS. The convex relaxations and the LPAC
-approximation will work; the exact MINLP will be considerably slower.
-
-```julia
-using HiGHS
-highs   = JuMP.optimizer_with_attributes(HiGHS.Optimizer, "mip_rel_gap" => 1e-4)
-juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
-              "nl_solver" => ipopt, "mip_solver" => highs)
-```
 
 ### Faster Ipopt
 
@@ -111,8 +98,7 @@ Pass it through as `setting = s` on every `run_*` call.
 
 ## Bundled test cases
 
-Test networks live in `data_sources/` (and are mirrored in `test/data_sources/` and
-`tutorials/data_sources/`):
+Test networks live in `test/data_sources/` 
 
 | File | Description |
 |---|---|

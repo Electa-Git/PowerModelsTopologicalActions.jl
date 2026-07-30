@@ -1,7 +1,8 @@
 # Quick start
 
-This page walks through one complete OTS run and one complete BuS run on the bundled 5-bus
-hybrid AC/DC case. If you only read one page, read this one.
+This page walks through one complete BuS run on the bundled 5-bus
+hybrid AC/DC case. The thorough explanation of the results of this test case can be found in the [![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.segan.2026.102182-blue)](https://doi.org/10.1016/j.segan.2026.102182) paper.
+
 
 ## Common preamble
 
@@ -13,14 +14,13 @@ using JuMP, Ipopt, Gurobi, Juniper
 
 gurobi  = JuMP.optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 1e-4)
 ipopt   = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-6, "print_level" => 0)
-juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
-              "nl_solver" => ipopt, "mip_solver" => gurobi, "time_limit" => 36000)
+juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer, "nl_solver" => ipopt, "mip_solver" => gurobi, "time_limit" => 36000)
 
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
 # Parse and augment the network. `process_additional_data!` is required — it adds the
 # DC-grid structures that everything downstream expects.
-file = joinpath(@__DIR__, "data_sources", "case5_acdc.m")
+file = joinpath(dirname(dirname(@__DIR__)),"test","data_sources", "case5_acdc.m")
 data = _PM.parse_file(file)
 _PMACDC.process_additional_data!(data)
 ```
@@ -34,46 +34,14 @@ action must be judged, and it tells you immediately whether the case itself is f
 result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
 
 result_opf["termination_status"]   # LOCALLY_SOLVED
+result_opf["primal_status"]        # FEASIBLE_POINT
 result_opf["objective"]            # 194.139 $/h
 ```
-
-## Optimal transmission switching
-
-OTS needs no data preparation. Point it at the network and pick which side of the grid may
-be switched.
-
-```julia
-# AC branches switchable
-result_ots_ac    = _PMTP.run_acdcots_AC(data, ACPPowerModel, juniper; setting = s)
-
-# DC branches and AC/DC converters switchable
-result_ots_dc    = _PMTP.run_acdcots_DC(data, ACPPowerModel, juniper; setting = s)
-
-# everything switchable, optimized jointly
-result_ots_acdc  = _PMTP.run_acdcots_AC_DC(data, ACPPowerModel, juniper; setting = s)
-```
-
-Read the switching decisions out of the solution dictionary:
-
-```julia
-# which AC branches were de-energized?
-opened_ac = [i for (i, br) in result_ots_ac["solution"]["branch"] if br["br_status"] < 0.1]
-
-# which DC branches, and which converters?
-opened_dc   = [i for (i, br) in result_ots_dc["solution"]["branchdc"] if br["br_status"]   < 0.1]
-opened_conv = [i for (i, c)  in result_ots_dc["solution"]["convdc"]   if c["conv_status"] < 0.1]
-
-# the saving
-100 * (result_opf["objective"] - result_ots_ac["objective"]) / result_opf["objective"]  # ≈ 5 %
-```
-
-Statuses come back as floats from the solver, so compare against a tolerance rather than
-testing `== 0`.
 
 ## Busbar splitting
 
 BuS is a three-stage workflow: **prepare the data → solve → check AC feasibility**. The
-preparation stage is not optional — the optimization functions expect a network that has
+preparation stage is needed as the topology optimization model with BuS expect a network that has
 already been expanded with auxiliary buses and switches.
 
 ### Stage 1: prepare the data
@@ -99,7 +67,8 @@ See [Data model](data_model.md) for exactly what the transformation produces.
 To split several busbars, pass a vector:
 
 ```julia
-data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, [2, 3, 4])
+buses_to_split = [1, 2, 3, 4, 5]
+data_multiple_buses, switch_couples_multiple_buses, extremes_ZIL_multiple_buses = _PMTP.AC_busbars_split(data, buses_to_split)
 ```
 
 ### Stage 2: solve
@@ -113,16 +82,23 @@ result_bus_lpac = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, gurobi)
 ```
 
 The switching decisions are on the switches:
-
 ```julia
-for (sw_id, sw) in result_bus_lpac["solution"]["switch"]
-    sw["status"] < 0.1 && println("switch $sw_id is OPEN")
+for sw_id in 1:length(data_bus["switch"])
+    if !haskey(data_bus["switch"]["$sw_id"], "auxiliary") 
+        println("switch $sw_id is a busbar coupler with status $(result_bus_lpac["solution"]["switch"]["$sw_id"]["status"])")
+    else
+        if result_bus_lpac["solution"]["switch"]["$sw_id"]["status"] > 0.9
+            if data_bus["switch"]["$sw_id"]["t_bus"] == extremes_ZIL["$bus_to_split"][1]
+                println("switch $sw_id, linked to element $(data_bus["switch"]["$sw_id"]["auxiliary"]) $(data_bus["switch"]["$sw_id"]["original"]) is connected to the original busbar $bus_to_split")
+            else
+                println("switch $sw_id, linked to element $(data_bus["switch"]["$sw_id"]["auxiliary"]) $(data_bus["switch"]["$sw_id"]["original"]) is connected to the second half of busbar $bus_to_split, which is $bus_to_split'")
+            end
+        end
+    end
 end
 ```
 
-A busbar has actually been split when the **busbar coupler** — the ZIL switch, identified
-by `data_bus["switch"][id]["ZIL"] == true` — is open. Auxiliary switches being open just
-means an element chose the other half.
+A busbar has actually been split when the **busbar coupler** — the ZIL switch 1, is open. The auxiliary switches have been used to connect each element to either half of the busbar.
 
 ### Stage 3: check AC feasibility
 
@@ -152,47 +128,18 @@ Now the comparison is apples to apples:
 result_fc["termination_status"]      # LOCALLY_SOLVED → the topology is AC-feasible
 result_fc["objective"]               # 186.349 $/h
 result_opf["objective"]              # 194.139 $/h → a genuine 4.0 % saving
+println("Saving of (LPAC_BuS + AC-FC) vs AC-OPF: $(100*(result_opf["objective"] - result_fc["objective"])/result_opf["objective"]) %")
 ```
 
 If `result_fc` comes back infeasible, the approximated topology is not physically
-realizable and must be discarded. This is the whole point of the check.
+realizable and must be discarded. This is the whole point of the check, in my experience it barely happens.
 
 !!! note "The third argument is modified in place"
     `prepare_AC_feasibility_check_*` mutates its third argument and returns nothing useful.
-    Always pass a `deepcopy`. The function is also verbose by design — it prints every
+    Always pass a `deepcopy`. The function is also verbose by design for now — it prints every
     reconnection it makes, which is genuinely useful when a check fails unexpectedly.
 
-## DC and combined busbar splitting
 
-DC busbars work identically, through `DC_busbars_split` and `run_acdc_BuS_DC`:
-
-```julia
-data_bus_dc, dcswitch_couples, extremes_ZIL_dc = _PMTP.DC_busbars_split(data, 2)
-result_dc = _PMTP.run_acdc_BuS_DC(data_bus_dc, LPACCPowerModel, gurobi)
-
-data_fc_dc = deepcopy(data_bus_dc)
-_PMTP.prepare_AC_feasibility_check_DC_busbars(
-    result_dc, data_bus_dc, data_fc_dc, dcswitch_couples, extremes_ZIL_dc, data)
-result_fc_dc = _PMACDC.solve_acdcopf(data_fc_dc, ACPPowerModel, ipopt; setting = s)
-```
-
-To split an AC busbar and a DC busbar in the same problem, chain the two preparation
-functions:
-
-```julia
-data_both, sw_ac, ext_ac = _PMTP.AC_busbars_split(data, 2)
-data_both, sw_dc, ext_dc = _PMTP.DC_busbars_split(data_both, 2)
-
-result_both = _PMTP.run_acdc_BuS_AC_DC(data_both, LPACCPowerModel, gurobi)
-```
-
-!!! warning "AC first, then DC"
-    This order is required. `AC_busbars_split` resets `data["dcswitch_couples"]`, so calling
-    it second wipes the DC switch couples — and `run_acdc_BuS_AC_DC` will then silently skip
-    every DC exclusivity, ZIL, and BuS-OTS constraint, solving a different and
-    over-optimistic problem without any error. `DC_busbars_split` preserves an existing
-    `switch_couples`, so the AC-then-DC direction is safe. See
-    [Known issues and gotchas](known_issues.md).
 
 ## Choosing which busbar to split
 
@@ -220,23 +167,15 @@ end
 best
 ```
 
-A priori metrics for shortlisting promising busbars — rather than enumerating them — are
-identified in the paper as future work.
+A priori metrics for shortlisting promising busbars — rather than enumerating them - have been developed in this paper: [![DOI](https://img.shields.io/badge/DOI-10.1016/j.epsr.2026.113611-blue)](https://www.sciencedirect.com/science/article/pii/S0378779626009041).
 
 ## What to expect
 
-On `case5_acdc.m`, splitting all AC busbars:
+On `case5_acdc.m`, splitting AC busbar 2:
 
 | Model | Objective [\$/h] | Time [s] | AC-feasible? | Saving vs AC-OPF |
 |---|---|---|:-:|---|
 | AC-OPF (baseline) | 194.139 | 0.014 | — | — |
-| AC-BuS big-M (MINLP) | 184.972 | 232.4 | ✅ | 5.24 % |
-| SOC-BuS | 183.763 | 0.30 | ✅ | no split found |
-| QC-BuS | 183.761 | 0.33 | ✅ | no split found |
-| LPAC-BuS | 181.909 | 0.45 | ✅ | 4.01 % |
+| AC-BuS big-M (MINLP) | 185.209 | 12.81 | ✅ | 4.60 % |
+| LPAC-BuS + AC-FC | 186.349 | 0.09 | ✅ | 4.01 % |
 
-Two things are worth internalizing from this table. First, the convex relaxations produce
-low objective values but do not find a beneficial split — their bound is loose enough that
-the original topology already looks optimal. Second, LPAC gets within about one percentage
-point of the exact MINLP's saving in roughly 1/500th of the time. That trade is why LPAC is
-the recommended default.
