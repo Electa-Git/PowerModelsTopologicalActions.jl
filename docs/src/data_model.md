@@ -1,25 +1,16 @@
 # Data model
 
-This page documents what the busbar-splitting preparation functions do to a PowerModels
-network dictionary. You need it when debugging a model that solves but gives a nonsensical
-topology, when fixing elements to one half of a busbar, or when writing your own
-post-processing.
+This page documents what the busbar splitting (BuS) preparation functions do to a PowerModels network dictionary. You will probably need it when debugging a model that solves but gives a nonsensical topology, when fixing elements to one half of a busbar, or when writing your own post-processing.
 
 ## Starting point
 
 The input is a standard PowerModels dictionary extended by
-`PowerModelsACDC.process_additional_data!`, so alongside `"bus"`, `"branch"`, `"gen"`,
-`"load"` you have `"busdc"`, `"branchdc"`, and `"convdc"`.
+`PowerModelsACDC.process_additional_data!` in case of a hybrid AC/DC grid, so alongside `"bus"`, `"branch"`, `"gen"`, `"load"` you have `"busdc"`, `"branchdc"`, and `"convdc"`.
 
 Two prerequisites:
 
-- `data["switch"]` must exist. PowerModels creates it when parsing a Matpower file, and the
-  preparation functions index into it directly rather than creating it.
-- The case must contain **no pre-existing switches**. `AC_busbars_split` assumes it owns the
-  `"switch"` dictionary and numbers its own entries from 1.
-
-`data["dcswitch"]` does not need to exist — `DC_busbars_split` creates it, overwriting
-anything already there.
+- `data["switch"]` is created by PowerModels when parsing a Matpower file, and the preparation functions index into it directly rather than creating it.
+- The case must contain **no pre-existing switches** (it is normally the case). The function `AC_busbars_split` assumes it owns the `"switch"` dictionary and numbers its own entries from 1. `data["dcswitch"]` does not need to exist. The function `DC_busbars_split` creates it, overwriting anything already there.
 
 ## The transformation, by example
 
@@ -30,8 +21,8 @@ Take busbar 2 of `case5_acdc.m`, with a generator, a load, and two branches atta
 ```
         gen 1     load 1
            │         │
-    ───────┴────┬────┴───────      busbar 2
-                │
+    ───────┴────┬────┴──┬────      busbar 2
+                │       │
           branch 3   branch 5
 ```
 
@@ -44,13 +35,18 @@ Take busbar 2 of `case5_acdc.m`, with a generator, a load, and two branches atta
        ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲
     sw4   sw5    sw6   sw7    sw8   sw9   sw10  sw11
      │     │      │     │      │     │      │     │
- ────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────
-   busbar 2│           ／            │  busbar 2′ │
-           └────── sw1 (ZIL) ────────┘
+ ────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
+           │            |            |            |      │
+           |            |            |            |      └───┐  
+           |            |            |            |          ／  sw1 (ZIL) 
+           |            |            |            |      ┌───┘
+           |            |            |            |      │
+   ────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2'
+   
+          
 ```
 
-Every element now has its own auxiliary bus and a pair of switches, one to each half. The
-coupler `sw1` decides whether the two halves are one node or two.
+Every element now has its own auxiliary bus and a pair of switches, one to each half. The ZIL busbar coupler `sw1` decides whether the two halves are one node or two.
 
 ## Buses
 
@@ -62,7 +58,7 @@ Three kinds of bus coexist after the transformation, distinguished by flags.
 | `ZIL` | `Bool` | `true` on both halves — they are joined by a coupler |
 | `bus_split` | `Int` | index of the original busbar this bus derives from |
 | `auxiliary_bus` | `Bool` | `true` on buses created to host a detached element |
-| `auxiliary` | `String` | element type on this auxiliary bus: `"gen"`, `"load"`, `"branch"`, `"convdc"` |
+| `auxiliary` | `String` | element type on this auxiliary bus: `"gen"`, `"load"`,`"branch"`, `"convdc"` |
 | `original` | `Int` | index of that element in its own dictionary, **before** the split |
 
 So:
@@ -76,7 +72,7 @@ data["bus"]["2"]["ZIL"]            # true
 data["bus"]["6"]["split"]          # false
 data["bus"]["6"]["ZIL"]            # true
 data["bus"]["6"]["bus_split"]      # 2
-data["bus"]["6"]["bus_type"]       # 1 (PQ)
+data["bus"]["6"]["bus_type"]       # 1 
 
 # an auxiliary bus hosting generator 1
 data["bus"]["9"]["auxiliary_bus"]  # true
@@ -116,17 +112,24 @@ data["switch"]["1"] = Dict(
 )
 ```
 
-**Element switch** — two per detached element, no `ZIL` key, and free to open:
+**Element switch** — two per detached element and free to open:
 
 ```julia
 data["switch"]["4"] = Dict(
     "f_bus"     => 9,       # auxiliary bus
     "t_bus"     => 2,       # first half of the split busbar
     "bus_split" => 2,
+    "ZIL"       => false,
     "auxiliary" => "gen",   # what kind of element
     "original"  => 1,       # which one
     "cost"      => 0.0,     # free
-    # ... ratings inherited from switch 1
+    "index"          => 4,
+    "psw"            => 100.0,
+    "qsw"            => 100.0,
+    "thermal_rating" => 100.0,
+    "state"          => 1,
+    "status"         => 1,
+    "source_id"      => ["switch", 4],
 )
 ```
 
@@ -134,17 +137,12 @@ The presence or absence of the `"auxiliary"` key is the discriminator used throu
 code — `calc_ac_switch_cost` charges only switches that lack it, and
 `compute_couples_of_switches` pairs only switches that have it.
 
-!!! warning "`ZIL` does not distinguish couplers from element switches"
-    Element switches are built with `deepcopy(data["switch"]["1"])`, a copy of the coupler,
-    so they **inherit `ZIL => true`**. The source lines that would reset it to `false` are
-    commented out. Filtering on `ZIL` therefore selects every switch. Always test
-    `!haskey(sw, "auxiliary")` to find couplers.
 
 !!! warning "Default ratings are effectively infinite"
     `psw`, `qsw`, and `thermal_rating` all default to `100.0` p.u., far above anything that
     binds on the bundled cases. If you want switch ratings to constrain the solution — for
     instance to model realistic circuit-breaker capabilities — set them explicitly after
-    preparation.
+    preparation, and add protection constraints
 
 ## DC switches
 

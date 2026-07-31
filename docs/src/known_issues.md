@@ -8,26 +8,7 @@ wrong. Knowing about them up front is considerably cheaper than discovering them
 
 ## Critical
 
-### Split AC busbars before DC busbars
-
-**Affects:** any combined AC + DC busbar splitting workflow.
-
-`AC_busbars_split` ends by resetting `data["dcswitch_couples"]` to an empty dictionary:
-
-```julia
-data["switch_couples"] = deepcopy(switch_couples)
-data["dcswitch_couples"] = Dict{String,Any}()     # ← unconditional reset
-```
-
-`DC_busbars_split` no longer does the mirror-image thing — it preserves an existing
-`switch_couples` — so the AC-then-DC order is safe:
-
-```julia
-data, sw_ac, ext_ac = AC_busbars_split(data, ac_bus)   # ✅
-data, sw_dc, ext_dc = DC_busbars_split(data, dc_bus)
-```
-
-The reverse order is not. Calling `AC_busbars_split` second wipes the DC couples, and
+Calling `AC_busbars_split` second wipes the DC couples, and
 `build_acdc_BuS_AC_DC` then iterates an empty `:dcswitch_couples`, so
 `constraint_exclusivity_dc_switch`, `constraint_ZIL_dc_switch`, and
 `constraint_BS_OTS_dcbranch` are never posted. The model still solves; the answer is
@@ -40,14 +21,6 @@ There is no error and no warning. If you ever reorder these calls, assert first:
 @assert !isempty(data["switch_couples"])
 @assert !isempty(data["dcswitch_couples"])
 ```
-
-### `run_acdcsw_AC_DC` is exported but does not exist
-
-`src/prob/acdc_BuS_AC_DC.jl` declares `export run_acdcsw_AC_DC`, but no such function is
-defined in any included file — the implementation lives in `src/prob/acdcsw_AC_DC.jl`, which
-is not in the module's include list. The name shows up in tab-completion and in
-`names(PowerModelsTopologicalActions)`, then fails with `UndefVarError` when called. Use
-`run_acdc_BuS_AC_DC`.
 
 ---
 
@@ -105,7 +78,7 @@ but possible state for a hand-built dictionary — you get a `KeyError`. Initial
 haskey(data, "switch") || (data["switch"] = Dict{String,Any}())
 ```
 
-### Some split functions mutate, some copy
+### Some split functions mutate, some copy the original input data dictionary
 
 | Function | Behaviour |
 |---|---|
@@ -116,12 +89,13 @@ haskey(data, "switch") || (data["switch"] = Dict{String,Any}())
 
 `deepcopy` before calling the mutating ones.
 
+
 ### Binary results are floats
 
 Even declared-binary variables come back as `0.9999999` or `3.2e-9`. Always threshold:
 
 ```julia
-is_open = sw["status"] < 0.1        # ✅
+is_open = sw["status"] < 0.01        # ✅
 is_open = sw["status"] == 0         # ✗ will silently never fire
 ```
 
@@ -141,39 +115,20 @@ contains no `@test` assertions, nothing calls it from `runtests.jl`, and its dat
 the case files actually live in `test/data_sources/`.
 
 Until that is wired up, validate changes against the published results in
-[Formulations](formulations.md). The 5-bus AC-OPF objective of 194.139 \$/h and the AC-BuS big-M result
-of 184.972 \$/h are good canaries.
+[Formulations](formulations.md). The 5-bus AC-OPF objective of 194.139 \$/h and the AC-BuS big-M result of 184.972 \$/h are good canaries.
 
-### `src/prob/old_to_be_replaced/`
-
-Contains `acdcsw_AC_different_formulations.jl`, `acdcsw_AC_multiconductor.jl`,
-`redispatch.jl`, `acdcsw_AC_droop.jl`, `acdcsw_AC_hour.jl`. None are included in the module.
-`acdcsw_AC_droop.jl` declares four exports that consequently do nothing. Treat as dead code.
-
-### `busbar_splitting_fixed.jl` is marked unusable
-
-The file opens `## TO BE FIXED, DO NOT USE ###`. `AC_busbar_split_more_buses_fixed` and
-`DC_busbar_split_more_buses_fixed` should not be called. `elements_AC_busbar_split` and
-`elements_DC_busbar_split`, in the same file, are read-only inspection helpers and are fine.
 
 ### Big-M values are hardcoded
 
 `M_va = 2π`, `M_vm = 1.0`, `M_dc = 1.0`, written inline in `src/formdcgrid/acp.jl`,
 `lpac.jl`, `shared.jl`, and `dcp.jl`. There is no way to configure them from the data or the
-call site. They are conservative, which weakens the LP relaxation and slows branch-and-bound.
-Tightening them is the highest-leverage performance change available, and requires editing
-the source.
+call site. They are conservative, which supposedly weakens the LP relaxation and slows branch-and-bound. Tightening them is the highest-leverage performance change available, and requires editing the source. [Indicator constraints](https://support.gurobi.com/hc/en-us/articles/4414392016529-How-do-I-model-general-conditional-statements-in-Gurobi) seem not to speed up the formulation.
 
 ### No N-1 constraints
 
 The optimized topology is not checked against contingencies. Splitting a busbar reduces
 redundancy, so a topology that is optimal here may violate N-1. Listed as future work in the
 reference paper.
-
-### OTS has no relaxed formulations
-
-`run_acdcots_*` work only with `ACPPowerModel`. There is no LPAC or SOC path for OTS, which
-is why the larger cases do not converge within four hours.
 
 ---
 
@@ -195,13 +150,3 @@ effectiveness:
 Splitting all busbars in a 3120-bus network generates tens of thousands of switches. The
 count is `Σ_b (2·n_b) + B`. Split one busbar at a time.
 
-### The model runs but nothing switches
-
-Work through, in order:
-
-1. Is `data["switch_couples"]` non-empty? (See the first critical issue on this page.)
-2. Is the coupler penalty larger than the available saving?
-3. Is the case congested at all? An uncongested network has nothing for topology
-   optimization to fix, and returning the original topology is the correct answer.
-4. Are you using SOC or QC? On the published cases those consistently leave the topology
-   unchanged. Try LPAC.
