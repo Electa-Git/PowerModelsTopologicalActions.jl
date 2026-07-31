@@ -176,7 +176,7 @@ Contributions are welcome, particularly:
  
 ## Acknowledgements
  
-Developed as part of WP1 of the [ETF DIRECTIONS project](https://etch.be/en/directions-design-protection-and-control-offshore-dc-power-grids-and-power-hubs), funded by the FOD Economie of the Belgian Government in which [Etch - Energy Transmission Competence Hub](https://etch.be/en) - EnergyVille and KU Leuven collaborated with Elia Group to explore the future of electrical energy hubs.
+Developed as part of WP1 of the [ETF DIRECTIONS project](https://etch.be/en/directions-design-protection-and-control-offshore-dc-power-grids-and-power-hubs), funded by the FOD Economie of the Belgian Government in which [Etch - Energy Transmission Competence Hub](https://etch.be/en) - [EnergyVille](https://energyville.be/en/) and [KU Leuven](https://www.kuleuven.be/kuleuven) collaborated with Elia Group to explore the future of electrical energy hubs.
 
 Primary developer: Giacomo Bastianel ([@GiacomoBastianel](https://github.com/GiacomoBastianel)).
 Contributor: Marta Vanin ([@MartaVanin](https://github.com/MartaVanin)).

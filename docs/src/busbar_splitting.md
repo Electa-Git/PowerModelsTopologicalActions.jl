@@ -1,13 +1,20 @@
-# Busbar splitting
+# Busbar splitting (main contribution of the package)
 
-Busbar Splitting reconfigures a substation instead of removing a line. A double-busbar
-substation whose coupler is closed behaves as a single electrical node; open the coupler and
-it becomes two nodes that are physically adjacent but electrically distinct, with
-independent voltage magnitudes and angles. Every element attached to the substation must
-then choose a side.
+Busbar Splitting can make electrically distant parts of a substation that are electrically close. A double-busbar substation whose coupler is closed behaves as a single electrical node. If the busbar coupler is open, the two parts become two distinct nodes that are physically adjacent but electrically distinct, with independent voltage magnitudes and angles. 
+*In this formulation, every network element originally connected to the substation must then be connected to either one or the other part of the split busbar, or be disconnected in an OTS-fashion*.
+This ideas is shown in the following figures for an AC substation:
+![Representation of the proposed busbar splitting process for an AC busbar. The selected busbar `i` (left) is split into two buses `i` and `i'`, connected through a busbar coupler `ZIL_{ii'}`. The open/close position of this busbar coupler `ZIL_{ii'}` is represented in the optimization model by a binary variable. Each network element that was connected to busbar `i` in the input topology is linked to an auxiliary bus (named `m, n, o` and `p` in the figure) and can be connected to either one (`i`) or the other part (`i'`) of the split busbar through a switch (center).  Each switch is also represented in the model through a binary variable. After the optimization, the inactive switches are removed to yield the new topology (right).](docs/images/BuS_illustration_README.png)
 
-The effect is to redistribute power flows without sacrificing any transmission capacity —
-which is why it is often more attractive than switching a line out entirely.
+and for both AC and DC substations:
+
+![Busbar splitting representation with AC and DC switches for AC and DC busbars. Each grid element originally connected to the split busbars is attached to an auxiliary bus and linked to each part of the split busbar through a switch.](docs/images/Figure_4_SEGAN.png)
+
+The reconnection (or not) of the network elements is modelled through exclusivity constraint and summarized by the following figure:
+
+![Possible configurations of the exclusivity constraint for each network element connected to a busbar potentially being split.](docs/images/Figure_5_SEGAN.png)
+
+`constraint_exclusivity_switch` is an "exclusivity" constraint including the switches connecting each grid element to the split busbar. It is either an equality ($=$ 1) or inequality ($\leq$ 1) constraint depending on whether OTS is performed or not \added{on the network elements originally connected to the split busbar}. If the network elements originally connected to the split busbar and BuS are both allowed in the same optimization  problem, `constraint_exclusivity_switch` is an inequality constraint and the switches are both allowed to be open. As a result, the grid element is not reconnected to the split busbar `i`. If `constraint_exclusivity_switch` is an equality constraint, each grid element decoupled from the original busbar `i` needs to be reconnected to one part of the split busbar, and one of the two switches must be closed. The possible switching states allowed by the "exclusivity" constraint are represented in the figure above, where 1 indicates that the switch is closed, $0$ that the switch is open. Note that constraint `constraint_ZIL_switch` imposes that if the busbar coupler is closed, i.e. BuS is not performed, one switch connecting the network element to the original busbar will always be closed.
+
 
 ## The three-stage workflow
 

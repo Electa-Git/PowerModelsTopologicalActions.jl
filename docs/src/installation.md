@@ -44,7 +44,7 @@ Using a free solver instead of Gurobi is still something which is work in progre
 |---|---|---|
 | `ACPPowerModel` | MINLP | [Juniper](https://github.com/lanl-ansi/Juniper.jl) wrapping an NLP solver (Ipopt) and a MIP solver (Gurobi) |
 | `LPACCPowerModel` | MIQCP | Gurobi, or another MIQCP-capable solver |
-|---|---|---|
+
 
 
 ### A working solver stack
@@ -108,4 +108,4 @@ Test networks live in `test/data_sources/`
 | `pglib_opf_case588_sdet_acdc.m` | 588 AC buses, 7 DC buses |
 | `case3120sp_mcdc.m` | 3120 AC buses, 5 DC buses |
 | `cigre_b4_dc_grid.m` | CIGRE B4 DC grid |
-| `case5.m`, `case14.m`, `case24.m`, `case30_ieee.m` | AC-only cases |
+| `case5.m`, `case14.m`, `case24.m`, `case30_ieee.m`, `case57_ieee.m`, `case118_ieee.m`, `case793_goc.m`, `case3375wp_k.m` | AC-only cases |

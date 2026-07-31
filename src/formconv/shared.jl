@@ -118,4 +118,3 @@ function constraint_conv_firing_angle_ots(pm::_PM.AbstractWModels, n::Int, i::In
     JuMP.@constraint(pm.model, qc >= Q1 + (pc-P1) * coeff )
 end
 
-############################################# BUSBAR SPLITTING CONSTRAINTS ###################################

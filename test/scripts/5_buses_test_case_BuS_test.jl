@@ -22,7 +22,7 @@ s_dual = Dict("output" => Dict("branch_flows" => true,"duals" => true), "conv_lo
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
 test_case_5_acdc = "case5_acdc.m"
-data_file_5_acdc = joinpath(@__DIR__,"data_sources",test_case_5_acdc)
+data_file_5_acdc = joinpath(dirname(@__DIR__),"data_sources",test_case_5_acdc)
 
 data_5_acdc = _PM.parse_file(data_file_5_acdc)
 _PMACDC.process_additional_data!(data_5_acdc)

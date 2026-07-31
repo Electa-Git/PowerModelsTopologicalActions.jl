@@ -1,5 +1,3 @@
-export run_acdcots_AC
-
 ## AC formulation of the AC/DC OTS with only AC branches that can be switched ##
 ""
 function run_acdcots_AC(file::String, model_type::Type, solver; kwargs...)
