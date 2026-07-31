@@ -4,15 +4,15 @@ Busbar Splitting can make electrically distant parts of a substation that are el
 *In this formulation, every network element originally connected to the substation must then be connected to either one or the other part of the split busbar, or be disconnected in an OTS-fashion*.
 This ideas is shown in the following figures for an AC substation:
 
-![Representation of the proposed busbar splitting process for an AC busbar. The selected busbar `i` (left) is split into two buses `i` and `i'`, connected through a busbar coupler `ZIL_{ii'}`. The open/close position of this busbar coupler `ZIL_{ii'}` is represented in the optimization model by a binary variable. Each network element that was connected to busbar `i` in the input topology is linked to an auxiliary bus (named `m, n, o` and `p` in the figure) and can be connected to either one (`i`) or the other part (`i'`) of the split busbar through a switch (center).  Each switch is also represented in the model through a binary variable. After the optimization, the inactive switches are removed to yield the new topology (right).](docs/images/BuS_illustration_README.png)
+![Representation of the proposed busbar splitting process for an AC busbar. The selected busbar `i` (left) is split into two buses `i` and `i'`, connected through a busbar coupler `ZIL_{ii'}`. The open/close position of this busbar coupler `ZIL_{ii'}` is represented in the optimization model by a binary variable. Each network element that was connected to busbar `i` in the input topology is linked to an auxiliary bus (named `m, n, o` and `p` in the figure) and can be connected to either one (`i`) or the other part (`i'`) of the split busbar through a switch (center).  Each switch is also represented in the model through a binary variable. After the optimization, the inactive switches are removed to yield the new topology (right).](../images/BuS_illustration_README.png)
 
 and for both AC and DC substations:
 
-![Busbar splitting representation with AC and DC switches for AC and DC busbars. Each grid element originally connected to the split busbars is attached to an auxiliary bus and linked to each part of the split busbar through a switch.](docs/images/Figure_4_SEGAN.png)
+![Busbar splitting representation with AC and DC switches for AC and DC busbars. Each grid element originally connected to the split busbars is attached to an auxiliary bus and linked to each part of the split busbar through a switch.](../images/Figure_4_SEGAN.png)
 
 The reconnection (or not) of the network elements is modelled through exclusivity constraint and summarized by the following figure:
 
-![Possible configurations of the exclusivity constraint for each network element connected to a busbar potentially being split.](docs/images/Figure_5_SEGAN.png)
+![Possible configurations of the exclusivity constraint for each network element connected to a busbar potentially being split.](../images/Figure_5_SEGAN.png)
 
 `constraint_exclusivity_switch` is an "exclusivity" constraint including the switches connecting each grid element to the split busbar. It is either an equality ($=$ 1) or inequality ($\leq$ 1) constraint depending on whether OTS is performed or not \added{on the network elements originally connected to the split busbar}. If the network elements originally connected to the split busbar and BuS are both allowed in the same optimization  problem, `constraint_exclusivity_switch` is an inequality constraint and the switches are both allowed to be open. As a result, the grid element is not reconnected to the split busbar `i`. If `constraint_exclusivity_switch` is an equality constraint, each grid element decoupled from the original busbar `i` needs to be reconnected to one part of the split busbar, and one of the two switches must be closed. The possible switching states allowed by the "exclusivity" constraint are represented in the figure above, where 1 indicates that the switch is closed, $0$ that the switch is open. Note that constraint `constraint_ZIL_switch` imposes that if the busbar coupler is closed, i.e. BuS is not performed, one switch connecting the network element to the original busbar will always be closed.
 
@@ -96,14 +96,12 @@ All three elements matter, and two of them are needed again in stage 3.
 
 | Function | Use case |
 |---|---|
-| `AC_busbars_split` | Standard AC busbar splitting in a hybrid AC/DC grid. **Start here.** |
+| `AC_busbars_split` | Standard AC busbar splitting in a hybrid AC/DC grid. |
 | `DC_busbars_split` | DC busbar splitting in a hybrid AC/DC grid. |
 | `AC_busbar_split_AC_grid` | AC-only networks with no DC components. Mutates its input. |
 | `AC_busbars_split_ordered` | Preserves bus ordering. Mutates its input. |
-| `AC_busbars_split_multiconductor` | Multiconductor / bipolar DC modelling. |
-| `DC_busbars_split_multiconductor` | Ditto, DC side. |
-| `AC_busbar_split_more_buses_fixed` | **Marked `DO NOT USE` in the source.** |
-| `DC_busbar_split_more_buses_fixed` | **Marked `DO NOT USE` in the source.** |
+| `AC_busbars_split_multiconductor` | Multiconductor / bipolar DC modelling, AC side. |
+| `DC_busbars_split_multiconductor` | Multiconductor / bipolar DC modelling, DC side. |
 
 Only `AC_busbars_split` and `DC_busbars_split` copy their input. The others mutate, so
 `deepcopy` first if you need the original.
