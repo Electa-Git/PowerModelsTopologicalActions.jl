@@ -10,10 +10,7 @@ valid AC power flow.
 Solving the exact MINLP avoids the issue but is slow — on `case5_acdc.m` with all busbars
 splittable, 232 s against 0.45 s for LPAC.
 
-The feasibility check resolves this. It takes the topology from a fast model, freezes it
-into a fixed network, and solves an ordinary AC/DC OPF on that. If the OPF converges, the
-topology is AC-feasible and its objective is directly comparable to the baseline. If it does
-not, the topology is discarded.
+The feasibility check is based on this. It takes the topology from the developed grid topology optimization model, freezes it into a fixed network, and solves an ordinary AC/DC OPF on that. If the OPF converges to a feasible solution, the topology is AC-feasible and its objective is directly comparable to the baseline. If it does not, the topology is discarded (this does not happen often).
 
 This is what makes the fast formulations usable: LPAC finds candidate topologies, the check
 validates and prices them.
@@ -45,14 +42,13 @@ _PMTP.prepare_AC_feasibility_check_AC_busbars(
 result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
 ```
 
-The three points that catch people out:
+The three points to be improved soon:
 
 1. **The third argument is mutated.** The function's return value is not meaningful; the
    output is the transformed `input_ac_check`. Always pass a `deepcopy`.
 2. **All six arguments are required**, including the original unsplit network, which is used
    to work out which bus indices predate the split.
-3. **It prints extensively.** Every reconnection is logged. This is deliberate — when a
-   check fails, the log is how you find out which element ended up where.
+3. **It prints extensively.** Every reconnection is logged. This is deliberate, the log is how you find out which element ended up where. I recommend to build some functions to further check the topologies (e.g. how many switches are connected to each part of the split busbar), as I still have not developed a plotting tool to immediately see the optimized topology. Feel free to propose efficient ways to do so (smiling face)
 
 ## What it does
 
@@ -73,6 +69,7 @@ standard AC/DC OPF can consume without any knowledge of switches.
 
 ```julia
 result_fc["termination_status"]   # LOCALLY_SOLVED / INFEASIBLE / ...
+result_fc["primal_status"]        # 
 result_fc["objective"]            # comparable to the AC-OPF baseline
 ```
 
@@ -86,9 +83,6 @@ The published results show no infeasible outcomes from LPAC-BuS topologies acros
 cases, but that is empirical, not a guarantee. LPAC is an approximation, not a relaxation,
 so nothing rules infeasibility out.
 
-You will regularly see the second outcome with SOC and QC. Those relaxations typically leave
-the topology unchanged, so the check returns exactly the AC-OPF objective — a null result,
-correctly reported.
 
 ## Comparing across formulations
 
@@ -128,7 +122,8 @@ from as its second argument, not the combined one.
 
 For bipolar DC modelling, use `prepare_AC_feasibility_check_AC_busbars_multiconductor` and
 `prepare_AC_feasibility_check_DC_busbars_multiconductor`. Signatures are identical; they
-additionally handle the per-terminal switch structure.
+additionally handle the per-terminal switch structure. I will refine the documentation on this soon, together with the one in [PowerModelsMCDC](https://github.com/Electa-Git/PowerModelsMCDC.jl). An initial implementation of the optimization model and computation of benefits of AC busbar splitting in the unbalanced operation of HVDC grids are published in the following conference paper [![DOI](https://img.shields.io/badge/DOI-10.1049/icp.2026.2272-blue)](https://doi.org/10.1049/icp.2026.2272)
+
 
 ## Troubleshooting
 

@@ -92,7 +92,7 @@ Full documentation is in [`docs/`](docs/src):
 | [Installation](docs/src/installation.md) | solver stacks, settings, bundled test cases |
 | [Quick start](docs/src/quickstart.md) | BuS example on a 5-buses test case |
 | [Optimal transmission switching](docs/src/ots.md) | OTS problem specifications and scaling |
-| [Busbar splitting](docs/src/busbar_splitting.md) | the three-stage workflow in detail |
+| [Busbar splitting](docs/src/busbar_splitting.md) | the main contribution of this package |
 | [AC feasibility check](docs/src/feasibility_check.md) | validating relaxed and approximated topologies |
 | [Formulations](docs/src/formulations.md) | choosing between ACP, SOC, QC, LPAC, DC |
 | [Data model](docs/src/data_model.md) | what the split functions do to your network dictionary |

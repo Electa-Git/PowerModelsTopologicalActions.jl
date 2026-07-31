@@ -180,29 +180,6 @@ constraints. **If this dictionary is empty, those constraints are silently not p
 the model becomes meaningless while still solving happily. This is the failure mode behind
 the `switch_couples` warning in [Known issues and gotchas](known_issues.md).
 
-## Fixing an element to one half
-
-In a real substation some elements are permanently bolted to one busbar section. Modelling
-this removes two binaries and shrinks the search space. There is no API for it, but the
-data model supports it directly — delete the couple and fix the unwanted switch:
-
-```julia
-data_split, switch_couples, extremes = AC_busbars_split(data, 2)
-
-# force generator 1 onto the first half of busbar 2
-for (cid, c) in switch_couples
-    sw_f = data_split["switch"]["$(c["f_sw"])"]
-    if get(sw_f, "auxiliary", "") == "gen" && sw_f["original"] == 1
-        # keep f_sw closed, force t_sw open
-        data_split["switch"]["$(c["t_sw"])"]["status"] = 0
-        delete!(data_split["switch_couples"], cid)
-    end
-end
-```
-
-Verify the resulting topology carefully — you are working below the level the preparation
-functions guarantee.
-
 ## Reference: keys added by preparation
 
 | Dictionary | Key | Type | Set on |

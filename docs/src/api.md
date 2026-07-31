@@ -167,8 +167,6 @@ key. Prefer `DC_busbars_split_multiconductor_updated` over the older variant.
 compute_couples_of_switches(data)          → Dict
 compute_couples_of_dcswitches(data)        → Dict
 compute_couples_of_dcswitches_mc(data)     → Dict
-compute_couples_of_switches_feas_check(data) → Dict
-eliminate_duplicates_couple_of_switches(switch_couples)
 ```
 
 Called internally by the split functions. Use directly if you have modified the switch set
