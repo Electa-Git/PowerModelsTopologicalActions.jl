@@ -13,7 +13,7 @@ this is the first package able to perform both OTS and busbar splitting on **eit
 
 An intuition behind BuS process is represented in the following figure:
 
-![Representation of the proposed busbar splitting process.](docs/images/BuS_illustration_README.png)
+![Representation of the proposed busbar splitting process.](docs/src/images/BuS_illustration_README.png)
 
 The model output is the status (1 closed, 0 open) of the busbar coupler and each switch, together with all the decision variables usually related to optimal power flow simulations.
  
@@ -90,7 +90,7 @@ Full documentation is in [`docs/`](docs/src):
 | Page | Contents |
 |---|---|
 | [Installation](docs/src/installation.md) | solver stacks, settings, bundled test cases |
-| [Quick start](docs/src/quickstart.md) | complete worked OTS and BuS examples |
+| [Quick start](docs/src/quickstart.md) | BuS example on a 5-buses test case |
 | [Optimal transmission switching](docs/src/ots.md) | OTS problem specifications and scaling |
 | [Busbar splitting](docs/src/busbar_splitting.md) | the three-stage workflow in detail |
 | [AC feasibility check](docs/src/feasibility_check.md) | validating relaxed and approximated topologies |
