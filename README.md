@@ -1,4 +1,4 @@
-# PowerModelsTopologicalActions.jl (Documentation is still being built!)
+# PowerModelsTopologicalActions.jl 
  
 [![CI](https://github.com/Electa-Git/PowerModelsTopologicalActions.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/Electa-Git/PowerModelsTopologicalActions.jl/actions/workflows/CI.yml)
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://electa-git.github.io/PowerModelsTopologicalActions.jl/dev/)
@@ -89,15 +89,15 @@ Full documentation is in [`docs/`](docs/src):
  
 | Page | Contents |
 |---|---|
-| [Installation](docs/src/installation.md) | solver stacks, settings, bundled test cases |
+| [Installation](docs/src/installation.md) | Solver stacks, settings, bundled test cases |
 | [Quick start](docs/src/quickstart.md) | BuS example on a 5-buses test case |
 | [Optimal transmission switching](docs/src/ots.md) | OTS problem specifications and scaling |
-| [Busbar splitting](docs/src/busbar_splitting.md) | the main contribution of this package |
-| [AC feasibility check](docs/src/feasibility_check.md) | validating relaxed and approximated topologies |
-| [Formulations](docs/src/formulations.md) | choosing between ACP, SOC, QC, LPAC, DC |
-| [Data model](docs/src/data_model.md) | what the split functions do to your network dictionary |
-| [API reference](docs/src/api.md) | function-by-function listing |
-| [Known issues and gotchas](docs/src/known_issues.md) | **read this first** |
+| [Busbar splitting](docs/src/busbar_splitting.md) | The main contribution of this package |
+| [AC feasibility check](docs/src/feasibility_check.md) | Validating relaxed and approximated topologies |
+| [Formulations](docs/src/formulations.md) | Choosing between ACP, SOC, QC, LPAC, DC |
+| [Data model](docs/src/data_model.md) | What the split functions do to your network dictionary |
+| [API reference](docs/src/api.md) | Function-by-function listing |
+| [Known issues and gotchas](docs/src/known_issues.md) | Known issues highlighted by Claude |
  
 To build the HTML docs locally:
  
