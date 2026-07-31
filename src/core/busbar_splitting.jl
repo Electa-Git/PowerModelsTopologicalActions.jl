@@ -212,7 +212,7 @@ function AC_busbars_split(data_original,bus_to_be_split)
                     data["switch"]["$added_switch_1"]["auxiliary"] = deepcopy(b["auxiliary"]) 
                     data["switch"]["$added_switch_1"]["original"] = deepcopy(b["original"]) 
                     data["switch"]["$added_switch_1"]["bus_split"] = parse(Int64,i) 
-                    #data["switch"]["$added_switch_1"]["ZIL"] = false
+                    data["switch"]["$added_switch_1"]["ZIL"] = false
 
                     #second switch
                     added_switch_2 = added_switch_1 + 1
@@ -225,7 +225,7 @@ function AC_busbars_split(data_original,bus_to_be_split)
                     data["switch"]["$added_switch_2"]["auxiliary"] = deepcopy(b["auxiliary"]) 
                     data["switch"]["$added_switch_2"]["original"] = deepcopy(b["original"]) 
                     data["switch"]["$added_switch_2"]["bus_split"] = parse(Int64,i) 
-                    #data["switch"]["$switch_id"]["ZIL"] = false
+                    data["switch"]["$added_switch_2"]["ZIL"] = false
                 end
             end
         end

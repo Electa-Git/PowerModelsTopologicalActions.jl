@@ -1,6 +1,6 @@
 # Busbar splitting (main contribution of the package)
 
-Busbar Splitting can make electrically distant parts of a substation that are electrically close. A double-busbar substation whose coupler is closed behaves as a single electrical node. If the busbar coupler is open, the two parts become two distinct nodes that are physically adjacent but electrically distinct, with independent voltage magnitudes and angles. 
+Busbar Splitting (BuS) can make electrically distant parts of a substation that are electrically close. A double-busbar substation whose coupler is closed behaves as a single electrical node. If the busbar coupler is open, the two parts become two distinct nodes that are physically adjacent but electrically distinct, with independent voltage magnitudes and angles. 
 *In this formulation, every network element originally connected to the substation must then be connected to either one or the other part of the split busbar, or be disconnected in an OTS-fashion*.
 This ideas is shown in the following figures for an AC substation:
 
@@ -19,34 +19,32 @@ The reconnection (or not) of the network elements is modelled through exclusivit
 
 ## The three-stage workflow
 
-Unlike OTS, busbar splitting requires the network to be restructured before it can be
-optimized. There are three stages, and skipping any of them produces either an error or a
-misleading answer.
+BuS requires the network to be restructured before it can be optimized. There are three stages I have created in my models.
 
 ```
    ┌─────────────────────┐
-   │  1. PREPARE DATA    │   AC_busbars_split / DC_busbars_split
-   │                     │   → expands the network with auxiliary
+   │                     │  AC_busbars_split / DC_busbars_split
+   │   1. PREPARE DATA   │   → expands the network with auxiliary
    │                     │     buses and switches
    └──────────┬──────────┘
               │  data_split, switch_couples, extremes_ZIL
               ▼
    ┌─────────────────────┐
-   │  2. OPTIMIZE        │   run_acdc_BuS_AC / _DC / _AC_DC
+   │                     │   
+   │    2. OPTIMIZE      │   run_acdc_BuS_AC / _DC / _AC_DC
    │                     │   → switch states as decision variables
    └──────────┬──────────┘
               │  result
               ▼
    ┌─────────────────────┐
+   │                     │ 
    │  3. FEASIBILITY     │   prepare_AC_feasibility_check_*
-   │     CHECK           │   then a plain AC/DC OPF
+   │        CHECK        │   then a plain AC/DC OPF
    │                     │   → verifies and prices the topology
    └─────────────────────┘
 ```
 
-Stage 3 is skippable only when stage 2 used `ACPPowerModel`, since that formulation is
-already exact. For every relaxation and approximation it is mandatory — see
-[AC feasibility check](feasibility_check.md) for why.
+Stage 3 should be used even with each formulation as the switches are removed with the feasibility check, so one gets the exact OPF results with the optimized topology. More details about the feasibility check can be found here: [AC feasibility check](feasibility_check.md).
 
 ## Stage 1: preparing the network
 
@@ -55,17 +53,16 @@ data_split, switch_couples, extremes_ZIL = AC_busbars_split(data, bus_to_be_spli
 data_split, dcswitch_couples, extremes_ZIL_dc = DC_busbars_split(data, busdc_to_be_split)
 ```
 
-`bus_to_be_split` is either an `Int` or a vector of `Int`s. Both functions `deepcopy` their
+`bus_to_be_split` is either an `Int` (`bus_to_be_split` = x) or a vector of `Int`s (`bus_to_be_split` = [x, y, z]). Both functions `deepcopy` their
 input, so the original network is left untouched.
 
 For each busbar you nominate, the transformation:
 
 1. duplicates the busbar into parts `i` and `i′`;
-2. inserts a **busbar coupler** — a Zero Impedance Line (ZIL) modelled as a switch —
-   between them;
+2. inserts a **busbar coupler** — a Zero Impedance Line (ZIL) modelled as a switch with `ZIL = true` — between them;
 3. detaches every element attached to the busbar (generators, loads, branches, converters)
    and gives each its own **auxiliary bus**;
-4. connects each auxiliary bus to *both* halves through a **pair of switches**.
+4. connects each auxiliary bus to *both* halves through a **pair of switches**, which constitute a `switch_couple`.
 
 The optimizer then chooses, per element, which of its two switches is closed, plus whether
 the coupler is open or closed. The total switch count is
@@ -76,12 +73,11 @@ n_switches = Σ_b (2 · n_b) + B
 
 where `B` is the number of busbars being split and `n_b` the number of elements attached to
 busbar `b`. This grows fast, and it is the reason splitting every busbar in a large network
-is not practical.
+is not computationally efficient, nor feasible.
 
-See [Data model](data_model.md) for the resulting dictionary layout and the meaning of every key the
-transformation adds.
+See [Data model](data_model.md) for the resulting dictionary layout and the meaning of every key the transformation adds.
 
-### The returned tuple
+### The returned dictionary
 
 All three elements matter, and two of them are needed again in stage 3.
 
@@ -96,7 +92,7 @@ All three elements matter, and two of them are needed again in stage 3.
 
 | Function | Use case |
 |---|---|
-| `AC_busbars_split` | Standard AC busbar splitting in a hybrid AC/DC grid. |
+| `AC_busbars_split` | AC busbar splitting in a hybrid AC/DC grid. |
 | `DC_busbars_split` | DC busbar splitting in a hybrid AC/DC grid. |
 | `AC_busbar_split_AC_grid` | AC-only networks with no DC components. Mutates its input. |
 | `AC_busbars_split_ordered` | Preserves bus ordering. Mutates its input. |
@@ -104,7 +100,7 @@ All three elements matter, and two of them are needed again in stage 3.
 | `DC_busbars_split_multiconductor` | Multiconductor / bipolar DC modelling, DC side. |
 
 Only `AC_busbars_split` and `DC_busbars_split` copy their input. The others mutate, so
-`deepcopy` first if you need the original.
+`deepcopy` first if you need the original. **To be fixed soon**
 
 ## Stage 2: optimizing
 
@@ -114,13 +110,8 @@ run_acdc_BuS_DC(data_split, model_constructor, optimizer; kwargs...)
 run_acdc_BuS_AC_DC(data_split, model_constructor, optimizer; kwargs...)
 ```
 
-!!! note "These are not exported"
-    Unlike the OTS functions, the BuS entry points must be called qualified:
-    `_PMTP.run_acdc_BuS_AC(...)`.
-
 Choose the function matching the preparation you performed. `run_acdc_BuS_AC_DC` requires a
 network prepared by *both* `AC_busbars_split` and `DC_busbars_split`, applied in that order —
-see the warning in [Quick start](quickstart.md).
 
 ### The constraint set
 
@@ -188,18 +179,17 @@ Two things to note.
 
 First, **only the linear generation cost coefficient is used**. `calc_gen_cost` reads
 `g["cost"][end-1]`, so a quadratic term in your case data is silently ignored. This matches
-the paper, which sets quadratic coefficients to zero, but it will surprise you if your case
-relies on them.
+the paper, which sets quadratic coefficients to zero.
 
 Second, a **small penalty is charged for each open busbar coupler**. Auxiliary switches are
 free (`cost = 0.0`); couplers cost `1.0` by default. This ensures the model only splits a
 busbar when there is a real economic benefit, rather than splitting gratuitously among
 equal-cost optima. If splitting never happens on a case where you expect it to, check
-whether this penalty is swamping a small saving — you can adjust it per switch:
+whether this penalty is swamping a small saving — you can adjust it per switch, depending also on the generator costs:
 
 ```julia
 for (id, sw) in data_split["switch"]
-    !haskey(sw, "auxiliary") && (sw["cost"] = 0.1)   # couplers only
+    !haskey(sw, "auxiliary") && (sw["cost"] > 0.01)   # couplers only
 end
 ```
 
@@ -214,7 +204,7 @@ prepare_AC_feasibility_check_AC_busbars(
 result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
 ```
 
-## Reading the results
+## Reading the results [to be improved]
 
 ```julia
 for (sw_id, sw) in result["solution"]["switch"]
@@ -224,39 +214,30 @@ for (sw_id, sw) in result["solution"]["switch"]
 end
 ```
 
+and/or
+
+```julia
+for sw_id in 1:length(data_bus["switch"])
+    if !haskey(data_bus["switch"]["$sw_id"], "auxiliary") 
+        println("switch $sw_id is a busbar coupler with status $(result_bus_lpac["solution"]["switch"]["$sw_id"]["status"])")
+    else
+        if result_bus_lpac["solution"]["switch"]["$sw_id"]["status"] > 0.9
+            if data_bus["switch"]["$sw_id"]["t_bus"] == extremes_ZIL["$bus_to_split"][1]
+                println("switch $sw_id, linked to element $(data_bus["switch"]["$sw_id"]["auxiliary"]) $(data_bus["switch"]["$sw_id"]["original"]) is connected to the original busbar $bus_to_split")
+            else
+                println("switch $sw_id, linked to element $(data_bus["switch"]["$sw_id"]["auxiliary"]) $(data_bus["switch"]["$sw_id"]["original"]) is connected to the second half of busbar $bus_to_split, which is $bus_to_split'")
+            end
+        end
+    end
+end
+```
+
 DC switches appear under `result["solution"]["dcswitch"]` with the same `status` key.
 
 **A busbar was actually split if and only if its coupler is open.** Element switches being
 open only tells you which side each element picked, or — if both switches of a couple are
 open — that the element was dropped from the network entirely.
 
-!!! warning "Do not use the `ZIL` flag to identify the coupler"
-    Element switches are created with `deepcopy(data["switch"]["1"])` — a copy of the
-    coupler — so they **inherit `ZIL => true`**. The source lines that would reset it to
-    `false` are commented out. Every switch therefore reports `ZIL == true`, and filtering
-    on it selects all of them rather than just the coupler. Use the absence of the
-    `"auxiliary"` key instead, as above.
-
-## Practical guidance
-
-**Split one busbar at a time.** The published results split a single busbar in each of the
-larger cases, precisely because binary count is the binding constraint. All-busbars-split is
-demonstrated only on the 5-bus case, where it takes 232 s against 13 s for the single-busbar
-version.
-
-**Screen with LPAC, confirm with AC.** Run LPAC-BuS per candidate busbar, keep the topology
-with the best AC-feasible objective. This is the procedure used in the paper and it is
-roughly two orders of magnitude cheaper than screening with the MINLP.
-
-**Expect the convex relaxations to find nothing.** SOC and QC produce tight-looking
-objective values but, on the published cases, leave the topology unchanged. They are useful
-as bounds, not as topology generators. LPAC, despite being an approximation rather than a
-relaxation, is the formulation that actually finds beneficial splits.
-
-**Fix elements that cannot move.** In a real substation, some elements are hard-wired to one
-half. Modelling those as fixed rather than switchable removes two binaries each. The
-underlying data model supports it — see [Data model](data_model.md) — though there is no convenience
-API for it yet.
 
 ## Limitations
 
@@ -271,4 +252,5 @@ API for it yet.
 - **No N-1 security constraints.** The optimized topology is not verified against
   contingencies. Given that splitting a busbar reduces redundancy, this is a material
   limitation for operational use and is listed as future work.
-- **No stochastic RES modelling.** Single deterministic operating point only.
+- **No stochastic RES modelling.** Single deterministic operating point only for now, but we have a paper modelling it: [![DOI](https://img.shields.io/badge/DOI-10.1016/j.ijepes.2025.111527-blue)](https://doi.org/10.1016/j.ijepes.2025.111527). The code will be added to this repository in the future.
+
