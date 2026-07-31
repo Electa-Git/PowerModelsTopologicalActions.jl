@@ -1,7 +1,4 @@
-export run_acdcots_DC
-
 ## AC formulation of the AC/DC OTS with only DC branches that can be switched ##
-
 ""
 function run_acdcots_DC(file::String, model_type::Type, solver; kwargs...)
     data = _PM.parse_file(file)

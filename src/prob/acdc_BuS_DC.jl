@@ -1,5 +1,5 @@
 
-# DC Busbar splitting for AC/DC grid
+# Busbar splitting for DC busbars in hybrid AC/DC grids
 "ACDC opf with controllable switches in DC busbar splitting configuration for AC/DC grids"
 function run_acdc_BuS_DC(file, model_constructor, optimizer; kwargs...)
     return _PM.solve_model(file, model_constructor, optimizer, build_acdc_BuS_DC; ref_extensions=[add_ref_dcgrid_dcswitch!, _PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!,_PM.ref_add_on_off_va_bounds!], kwargs...)
