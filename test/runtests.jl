@@ -8,6 +8,7 @@ using JuMP
 using Ipopt
 using HiGHS
 using Juniper
+using Gurobi
 
 const _PM   = PowerModels
 const _PMACDC = PowerModelsACDC
@@ -18,9 +19,7 @@ _PM.silence()
 # ---------------------------------------------------------------------------
 # Solvers
 #
-# Deliberately all open source, so CI needs no commercial licence. Gurobi is
-# faster for the MIQCP/MISOCP formulations, but everything below is small
-# enough that Juniper + Ipopt + HiGHS is adequate.
+# Gurobi is used for the LPAC formulations, Juniper = Ipopt + Gurobi for the AC MINLP formulation.
 # ---------------------------------------------------------------------------
 const IPOPT = optimizer_with_attributes(Ipopt.Optimizer,
                   "tol" => 1e-6, "print_level" => 0)
@@ -28,8 +27,23 @@ const IPOPT = optimizer_with_attributes(Ipopt.Optimizer,
 const HIGHS = optimizer_with_attributes(HiGHS.Optimizer,
                   "output_flag" => false)
 
+const GUROBI_AVAILABLE = try
+    Gurobi.Env(); true
+catch err
+    @warn "Gurobi license unavailable — falling back to HiGHS" err
+    false
+end
+
+const GUROBI = GUROBI_AVAILABLE ?
+    optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0) : nothing
+
+# Juniper (MINLP) = Ipopt for the NLP subproblems + a MIP solver.
+# Use Gurobi as the MIP solver when a license is present, HiGHS otherwise,
+# so the suite still runs without a Gurobi licence (e.g. forked-PR CI).
 const JUNIPER = optimizer_with_attributes(Juniper.Optimizer,
-                  "nl_solver" => IPOPT, "mip_solver" => HIGHS, "log_levels" => [])
+                  "nl_solver"  => IPOPT,
+                  "mip_solver" => GUROBI_AVAILABLE ? GUROBI : HIGHS,
+                  "log_levels" => [])
 
 const SETTING = Dict("output" => Dict("branch_flows" => true),
                      "conv_losses_mp" => true)
@@ -50,8 +64,8 @@ is_open(x) = x < 0.1
 # Tolerances are loose because the MINLP results are local optima and depend on
 # the solver stack; they are tight enough to catch a real regression.
 const OBJ_OPF     = 194.139   # AC-OPF baseline
-const OBJ_OTS_AC  = 184.437   # AC-OTS, AC branches switchable
 const OBJ_BUS_FC  = 186.349   # LPAC-BuS on busbar 2, after AC feasibility check
+const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
 
 @testset "PowerModelsTopologicalActions.jl" begin
 
@@ -122,40 +136,8 @@ const OBJ_BUS_FC  = 186.349   # LPAC-BuS on busbar 2, after AC feasibility check
 
             @test length(couples_two) > length(couples_one)
         end
+
     end
-
-    # -----------------------------------------------------------------------
-    # Regression guards for bugs that have been fixed, so they stay fixed.
-    # -----------------------------------------------------------------------
-    #=
-    @testset "regression guards" begin
-
-        @testset "DC_busbars_split preserves AC switch_couples" begin
-            # Previously DC_busbars_split reset data["switch_couples"] to an
-            # empty Dict, which silently dropped every AC exclusivity, ZIL and
-            # BuS-OTS constraint from the combined AC/DC model.
-            data = load_case(CASE5)
-            d, sw_ac, _ = _PMTP.AC_busbars_split(data, 2)
-            d, sw_dc, _ = _PMTP.DC_busbars_split(d, 2)
-
-            @test !isempty(d["switch_couples"])
-            @test !isempty(d["dcswitch_couples"])
-            @test length(d["switch_couples"])   == length(sw_ac)
-            @test length(d["dcswitch_couples"]) == length(sw_dc)
-        end
-
-        @testset "reverse split order (known issue)" begin
-            # AC_busbars_split still resets dcswitch_couples unconditionally, so
-            # the DC-then-AC order loses the DC couples. Documented in
-            # docs/src/known_issues.md. Flip to @test when fixed.
-            data = load_case(CASE5)
-            d, _, _ = _PMTP.DC_busbars_split(data, 2)
-            d, _, _ = _PMTP.AC_busbars_split(d, 2)
-
-            @test_broken !isempty(d["dcswitch_couples"])
-        end
-    end
-    =#
 
     # -----------------------------------------------------------------------
     # Optimisation results. Slower; these are the numbers from the paper.
@@ -168,67 +150,26 @@ const OBJ_BUS_FC  = 186.349   # LPAC-BuS on busbar 2, after AC feasibility check
         @test isapprox(result["objective"], OBJ_OPF; rtol = 1e-3)
     end
 
-    #=
-    @testset "optimal transmission switching" begin
 
-        @testset "AC branches switchable" begin
-            data   = load_case(CASE5)
-            result = _PMTP.run_acdcots_AC(data, ACPPowerModel, JUNIPER; setting = SETTING)
-
-            @test result["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
-            @test result["objective"] < OBJ_OPF          # switching must help
-            @test isapprox(result["objective"], OBJ_OTS_AC; rtol = 1e-2)
-
-            opened = [id for (id, br) in result["solution"]["branch"]
-                      if is_open(br["br_status"])]
-            @test !isempty(opened)
-        end
-
-        @testset "DC elements switchable" begin
-            # No DC switching action improves on the base topology for this
-            # case; matching the AC-OPF objective is the expected outcome.
-            data   = load_case(CASE5)
-            result = _PMTP.run_acdcots_DC(data, ACPPowerModel, JUNIPER; setting = SETTING)
-
-            @test result["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
-            @test isapprox(result["objective"], OBJ_OPF; rtol = 1e-2)
-        end
-    end
-
-    @testset "busbar splitting" begin
-
-        @testset "LPAC-BuS on busbar 2 is AC-feasible and cheaper" begin
+    @testset "Gurobi formulations" begin
+        if GUROBI_AVAILABLE
             data = load_case(CASE5)
             data_split, couples, extremes = _PMTP.AC_busbars_split(data, 2)
 
-            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, JUNIPER)
-            @test result["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
-            @test haskey(result["solution"], "switch")
-
-            # Freeze the optimised topology and price it with an exact AC/DC OPF.
+            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, GUROBI)
             data_fc = deepcopy(data_split)
-            _PMTP.prepare_AC_feasibility_check_AC_busbars(
-                result, data_split, data_fc, couples, extremes, data)
+            _PMTP.prepare_AC_feasibility_check_AC_busbars(result_bus, data_split, data_fc, switch_couples, extremes, data)
+            result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
 
-            fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, IPOPT; setting = SETTING)
+            @test result_fc["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
+            @test isapprox(result_fc["objective"], OBJ_BUS_FC; rtol = 1e-2)
 
-            @test fc["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)  # AC-feasible
-            @test fc["objective"] < OBJ_OPF                              # and beneficial
-            @test isapprox(fc["objective"], OBJ_BUS_FC; rtol = 1e-2)
-        end
 
-        @testset "a busbar is only split when the coupler opens" begin
-            data = load_case(CASE5)
-            data_split, _, _ = _PMTP.AC_busbars_split(data, 2)
-            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, JUNIPER)
+            result_minlp = _PMTP.run_acdc_BuS_AC(data_split, ACPPowerModel, JUNIPER)
+            @test isapprox(result_minlp["objective"], OBJ_BUS_AC; rtol = 1e-2)
 
-            coupler_id = first(id for (id, sw) in data_split["switch"]
-                               if !haskey(sw, "auxiliary"))
-
-            # Whatever the solver decides, the reported status must be binary.
-            status = result["solution"]["switch"][coupler_id]["status"]
-            @test isapprox(status, 0.0; atol = 0.1) || isapprox(status, 1.0; atol = 0.1)
+        else
+            @test_skip "Gurobi not available"
         end
     end
-    =#
 end

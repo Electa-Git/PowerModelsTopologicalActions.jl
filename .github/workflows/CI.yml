@@ -31,20 +31,23 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-
       - uses: julia-actions/cache@v2
-
       - uses: julia-actions/julia-buildpkg@v1
-
+      - name: Write Gurobi WLS license
+        run: |
+          cat > ${{ github.workspace }}/gurobi.lic <<EOF
+          WLSACCESSID=${{ secrets.WLSACCESSID }}
+          WLSSECRET=${{ secrets.WLSSECRET }}
+          LICENSEID=${{ secrets.LICENSEID }}
+          EOF
       - uses: julia-actions/julia-runtest@v1
-
+        env:
+          GRB_LICENSE_FILE: ${{ github.workspace }}/gurobi.lic
       - uses: julia-actions/julia-processcoverage@v1
-
       - uses: codecov/codecov-action@v4
         with:
           files: lcov.info

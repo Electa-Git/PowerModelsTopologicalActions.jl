@@ -11,3 +11,5 @@ src/formulations.md
 
 # General
 *.DS_Store
+
+test/gurobi.lic
