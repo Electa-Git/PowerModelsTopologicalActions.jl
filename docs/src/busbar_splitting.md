@@ -3,6 +3,7 @@
 Busbar Splitting can make electrically distant parts of a substation that are electrically close. A double-busbar substation whose coupler is closed behaves as a single electrical node. If the busbar coupler is open, the two parts become two distinct nodes that are physically adjacent but electrically distinct, with independent voltage magnitudes and angles. 
 *In this formulation, every network element originally connected to the substation must then be connected to either one or the other part of the split busbar, or be disconnected in an OTS-fashion*.
 This ideas is shown in the following figures for an AC substation:
+
 ![Representation of the proposed busbar splitting process for an AC busbar. The selected busbar `i` (left) is split into two buses `i` and `i'`, connected through a busbar coupler `ZIL_{ii'}`. The open/close position of this busbar coupler `ZIL_{ii'}` is represented in the optimization model by a binary variable. Each network element that was connected to busbar `i` in the input topology is linked to an auxiliary bus (named `m, n, o` and `p` in the figure) and can be connected to either one (`i`) or the other part (`i'`) of the split busbar through a switch (center).  Each switch is also represented in the model through a binary variable. After the optimization, the inactive switches are removed to yield the new topology (right).](docs/images/BuS_illustration_README.png)
 
 and for both AC and DC substations:
