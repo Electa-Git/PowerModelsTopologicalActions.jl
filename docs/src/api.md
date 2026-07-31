@@ -186,27 +186,6 @@ Reports which generators, loads, branches, and converters are attached to each b
 for splitting. Prints as it goes. Lives in the module marked `DO NOT USE`, but is read-only
 and safe.
 
-### Not for use
-
-```julia
-AC_busbar_split_more_buses_fixed(data, bus_to_be_split)
-DC_busbar_split_more_buses_fixed(data, bus_to_be_split)
-```
-
-`src/core/busbar_splitting_fixed.jl` opens with `## TO BE FIXED, DO NOT USE ###`. Listed for
-completeness only.
-
-### Warm starts
-
-```julia
-prepare_starting_value_dict(result, grid)      → Dict
-prepare_starting_value_dict_lpac(result, grid) → Dict
-```
-
-Build starting-value dictionaries from a previous result, e.g. seeding an ACP solve with an
-LPAC solution.
-
----
 
 ## Feasibility checking
 
