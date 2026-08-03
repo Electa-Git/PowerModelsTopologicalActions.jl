@@ -64,8 +64,10 @@ LPAC gives you comparable tractability with far better physical fidelity.
 Lifts the voltage products into a higher-dimensional W-space:
 
 ```
-(Uᵐᵢ)² → Wᵢ        Uᵐᵢ · Uᵐⱼ → Wᵢⱼ
-(U^dc_e)² → W^dc_e  $U^{dc_e} \cdot U^{dc_f}$ → $W^{dc_ef}
+{U^{m}_{i}}^{2} $\rightarrow$ W_{i}
+{U^{m}_{i}}^{2} \cdot {U^{m}_{i}}^{2} $\rightarrow$ W_{ij}
+{(U^{dc}_e)}^{2} $\rightarrow$ W^{dc}_{e}  
+$U^{dc}_{e} \cdot U^{dc}_{f}$ $\rightarrow$ $W^{dc}_{ef}
 ```
 
 which convexifies the branch flow equations into second-order cone constraints. Solvable by
