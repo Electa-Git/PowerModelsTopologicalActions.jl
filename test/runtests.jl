@@ -178,7 +178,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
             result = JSON.parsefile(joinpath(dirname(@__DIR__),"tutorials","results","result_AC_BuS_AC_busbar_2.json"))
             data_fc = deepcopy(data_split)
             _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, couples, extremes, data)
-            result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
+            result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, IPOPT; setting = s)
 
             @test result_fc["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
             @test isapprox(result_fc["objective"], OBJ_BUS_FC; rtol = 1e-2)
