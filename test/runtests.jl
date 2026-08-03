@@ -158,7 +158,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
 
             result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, GUROBI)
             data_fc = deepcopy(data_split)
-            _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, switch_couples, extremes, data)
+            _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, couples, extremes, data)
             result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
 
             @test result_fc["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
@@ -174,7 +174,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
 
             result = joinpath(dirname(@__DIR__),"tutorials","results","result_AC_BuS_AC_busbar_2.json")
             data_fc = deepcopy(data_split)
-            _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, switch_couples, extremes, data)
+            _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, couples, extremes, data)
             result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
 
             @test result_fc["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
