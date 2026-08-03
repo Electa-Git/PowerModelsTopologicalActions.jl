@@ -10,10 +10,10 @@ them.
 | Formulation | Model type | Class | Solver | Guarantee |
 |---|---|---|---|---|
 | AC polar | `ACPPowerModel` | MINLP | Juniper + Ipopt + MIP | Exact (local optimum) |
-| SOC relaxation | `SOCWRPowerModel` | MISOCP | Gurobi, Mosek | Lower bound |
-| QC relaxation | `QCRMPowerModel` | MIQCP | Gurobi | Lower bound, tighter than SOC |
 | LPAC approximation | `LPACCPowerModel` | MIQCP | Gurobi | None — approximation |
-| DC approximation | `DCPPowerModel` | MILP | Gurobi, HiGHS | None — approximation |
+| SOC relaxation (to be further refined) | `SOCWRPowerModel` | MISOCP | Gurobi, Mosek | Lower bound |
+| QC relaxation (to be further refined) | `QCRMPowerModel` | MIQCP | Gurobi | Lower bound, tighter than SOC |
+| DC approximation (to be further refined) | `DCPPowerModel` | MILP | Gurobi, HiGHS | None — approximation |
 
 ## AC polar (`ACPPowerModel`)
 
@@ -37,18 +37,16 @@ survive an AC feasibility check. It uses a piecewise-linear approximation of the
 and a Taylor expansion for the remaining nonlinearities.
 
 This is the Cold-Start variant: target voltages `Ṽ = 1` p.u., with power flows expressed
-through the voltage magnitude change `φᵢ − φⱼ`. In this package it is built as a
+through the voltage magnitude change `$\phi_{i}$ − $\phi_{j}$`. In this package it is built as a
 convex-quadratic model, following the PowerModels.jl implementation, for solver efficiency.
 
 Why it is the default:
 
-- 10–200× faster than the exact MINLP on the published cases;
-- topologies were AC-feasible in every tested case;
-- captures most of the achievable saving (4.01 % vs 5.24 % on the 5-bus, all-busbars case).
+- 10–200× faster than the exact MINLP on the published cases
+- topologies are almost always AC-feasible
+- captures most of the achievable saving
 
-Being an approximation rather than a relaxation, its objective is neither an upper nor a
-lower bound on the true optimum, and its feasibility is not guaranteed. Always run the
-[AC feasibility check](feasibility_check.md).
+Being an approximation rather than a relaxation, its objective is neither an upper nor a lower bound on the true optimum, and its feasibility is not guaranteed. Always run the [AC feasibility check](feasibility_check.md).
 
 ## DC approximation (`DCPPowerModel`) -> to be refined further
 
@@ -100,7 +98,7 @@ Same practical caveat as SOC: on the tested cases it leaves the topology unchang
 `~` = code exists, not validated. OTS is implemented only for the exact formulation; the
 same relaxation approach would apply, but it has not been done here.
 
-## Empirical comparison
+## Empirical comparison (from the main paper)
 
 From the reference paper, `case5_acdc.m` with all AC busbars splittable:
 
@@ -108,12 +106,10 @@ From the reference paper, `case5_acdc.m` with all AC busbars splittable:
 |---|---|---|---|:-:|---|
 | AC-OPF (baseline) | — | 0.014 | — | ✅ | — |
 | AC-BuS big-M | 184.972 | 232.377 | 183.972 | ✅ | 5.24 % |
+| LPAC-BuS | 181.909 | 0.453 | 186.349 | ✅ | 4.01 % |
 | SOC-BuS | 183.763 | 0.301 | 194.139 | ✅ | none |
 | QC-BuS | 183.761 | 0.331 | 194.139 | ✅ | none |
-| LPAC-BuS | 181.909 | 0.453 | 186.349 | ✅ | 4.01 % |
 
-The relaxations' feasibility-check objectives landing exactly on the 194.139 baseline is the
-tell: they returned the unsplit topology.
 
 Scaling to larger cases, AC busbar split:
 

@@ -106,56 +106,21 @@ $ julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.
 $ julia --project=docs docs/make.jl
 ```
  
-## Running the tutorials
+## Running the tutorials -> still to be refined
  
-`tutorials/` contains worked demo scripts. They use their own environment, which needs to be
-pointed at your local copy of the package before first use:
- 
-```julia
-using Pkg
-Pkg.activate("tutorials")
-Pkg.develop(PackageSpec(path = pwd()))   # run from the repository root
-Pkg.instantiate()
-```
- 
-Then:
- 
-```console
-$ julia --project=tutorials tutorials/PTMP_demo.jl
-```
- 
-The tutorial environment includes Gurobi. If you do not have a licence, replace the solver
-definitions in the script with the open-source stack used by the test suite (Ipopt + HiGHS +
-Juniper) — see [Installation](docs/src/installation.md).
- 
-## Performance
- 
-The LPAC approximation is the recommended default. It is 10–200× faster than the exact
-MINLP and produced AC-feasible topologies on every published test case.
- 
-| Case | AC-BuS (MINLP) | LPAC-BuS | Speed-up |
-|---|---|---|---|
-| 39-bus | 30.3 s | 0.5 s | 61× |
-| 67-bus | 118.1 s | 0.5 s | 236× |
-| 588-bus | 958.1 s | 58.8 s | 16× |
-| 3120-bus | 12560.0 s | 534.0 s | 24× |
  
 ## Status
  
 Research code accompanying a peer-reviewed publication. The models are sound and validated
-against the published results, but the package is not hardened: `Pkg.test()` currently runs
-no assertions, one exported name does not resolve, and some helper functions carry
-`DO NOT USE` markers. Every rough edge we know about is documented in
-[Known issues and gotchas](docs/src/known_issues.md) rather than left to be discovered.
+against the published results, but the package is still being developed to include functionalities described in further publications.
  
-Contributions are welcome, particularly:
- 
-- turning `test/scripts/5_buses_test_case_BuS_test.jl` into an asserting regression test
-  driven from `runtests.jl` (the 5-bus objectives quoted above make good fixtures)
+Contributions are welcome, particularly: 
 - docstrings on the exported problem specifications
 - configurable big-M values, currently hardcoded per formulation file
 - an API for restricting the switchable element set
 - N-1 security constraints
+- an API visually plotting the results of the grid topology optimization models (switches status and substation topology)
+
 ## Citing
  
 > G. Bastianel, M. Vanin, D. Van Hertem, H. Ergun, "Optimal transmission switching and
@@ -178,5 +143,8 @@ Contributions are welcome, particularly:
  
 Developed as part of WP1 of the [ETF DIRECTIONS project](https://etch.be/en/directions-design-protection-and-control-offshore-dc-power-grids-and-power-hubs), funded by the FOD Economie of the Belgian Government in which [Etch - Energy Transmission Competence Hub](https://etch.be/en) - [EnergyVille](https://energyville.be/en/) and [KU Leuven](https://www.kuleuven.be/kuleuven) collaborated with Elia Group to explore the future of electrical energy hubs.
 
-Primary developer: Giacomo Bastianel ([@GiacomoBastianel](https://github.com/GiacomoBastianel)).
-Contributor: Marta Vanin ([@MartaVanin](https://github.com/MartaVanin)).
+Primary developer: 
+Giacomo Bastianel ([@GiacomoBastianel](https://github.com/GiacomoBastianel)).
+
+Contributors: 
+Marta Vanin ([@MartaVanin](https://github.com/MartaVanin)) $\rightarrow$ conceptualization of the package
