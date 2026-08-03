@@ -34,6 +34,8 @@ catch err
     @warn "Gurobi license unavailable — falling back to HiGHS" err
     false
 end
+s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
+
 
 const GUROBI = GUROBI_AVAILABLE ?
     optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0) : nothing
