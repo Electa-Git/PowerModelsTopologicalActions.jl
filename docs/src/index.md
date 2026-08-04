@@ -1,76 +1,150 @@
-# PowerModelsTopologicalActions.jl
+# PowerModelsTopologicalActions.jl 
+ 
+[![CI](https://github.com/Electa-Git/PowerModelsTopologicalActions.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/Electa-Git/PowerModelsTopologicalActions.jl/actions/workflows/CI.yml)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://electa-git.github.io/PowerModelsTopologicalActions.jl/dev/)
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-green.svg)](LICENSE)
+[![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.segan.2026.102182-blue)](https://doi.org/10.1016/j.segan.2026.102182)
+ 
+A Julia/JuMP package for **steady-state grid topology optimization in AC and hybrid AC/DC grids**. It computes which lines to de-energize (Optimal Transmission Switching, OTS) and how to reconfigure selected substations (Busbar Splitting, BuS) to minimize total generation costs in the system, subject to the full physics of hybrid AC/DC grids.
+ 
+Built on [PowerModels.jl](https://github.com/lanl-ansi/PowerModels.jl) and
+[PowerModelsACDC.jl](https://github.com/Electa-Git/PowerModelsACDC.jl),
+this is the first package able to perform both OTS and busbar splitting on **either part** of a hybrid AC/DC grid. While OTS and BuS have been used for decades in AC grids, they remain largely unexplored on the DC side. Long story short, with this package, one can optimize the grid topology with OTS and BuS, with a deep focus on BuS.
 
-`PowerModelsTopologicalActions.jl` is a Julia/JuMP package for **steady-state grid topology
-optimization in hybrid AC/DC power systems**. It computes which lines to de-energize
-(Optimal Transmission Switching, OTS) and how to reconfigure substations (Busbar Splitting,
-BuS) so as to minimize total generation cost, subject to the full physics of the coupled
-AC and DC grid.
+An intuition behind BuS process is represented in the following figure:
 
-It is built on top of [PowerModels.jl](https://github.com/lanl-ansi/PowerModels.jl) and
-[PowerModelsACDC.jl](https://github.com/Electa-Git/PowerModelsACDC.jl), and follows their
-conventions throughout: the same network data dictionaries, the same `model_type` /
-`solver` calling signature, the same `result["solution"]` layout.
+![Representation of the proposed busbar splitting process.](docs/src/images/BuS_illustration_README.png)
 
-What makes this package distinct is that **the switching actions apply to the DC side as
-well as the AC side**. Existing topology-optimization tools treat HVDC links as fixed
-injections; here DC branches, AC/DC converters, and DC busbars are first-class switchable
-objects, and AC and DC actions can be optimized jointly in a single problem.
-
+The model output is the status (1 closed, 0 open) of the busbar coupler and each switch, together with all the decision variables usually related to optimal power flow simulations.
+ 
 ## Capabilities
-
+ 
 **Topological actions**
+ 
+- AC / DC / combined AC-DC optimal transmission switching
+- AC / DC / combined AC-DC busbar splitting
+- Busbar splitting combined with OTS on selected busbars.
 
-| Action | AC part | DC part | Combined |
-|---|:-:|:-:|:-:|
-| Optimal Transmission Switching | ✅ | ✅ | ✅ |
-| Busbar Splitting | ✅ | ✅ | ✅ |
-| Busbar Splitting with OTS on the affected elements | ✅ | ✅ | ✅ |
+## Power Flow formulations
 
-**Power flow formulations**
+**Most refined**
+- AC polar coordinates — exact, MINLP
+- LPAC approximation (cold start) — MIQCP
 
-| Formulation | Model type | Class | Notes |
-|---|---|---|---|
-| AC polar | `ACPPowerModel` | MINLP | Exact; big-M reformulated for BuS |
-| SOC relaxation | `SOCWRPowerModel` | MISOCP | W-space lifting |
-| QC relaxation | `QCRMPowerModel` | MIQCP | W + λ-space, McCormick envelopes |
-| LPAC approximation | `LPACCPowerModel` | MIQCP | Cold-start; keeps voltage magnitudes and reactive power |
-| DC approximation | `DCPPowerModel` | MILP | Partial support, see [Formulations](formulations.md) |
 
-In practice the **LPAC formulation is the workhorse**: on the test cases reported in the
-reference paper it runs 10–200× faster than the exact MINLP while still producing
-AC-feasible topologies.
+**To be further refined**
+- SOC relaxation — MISOCP
+- QC relaxation — MIQCP
+- DC approximation — MILP, partial support
 
-## Where to start
 
-- [Installation](installation.md) — getting the package and a solver stack running.
-- [Quick start](quickstart.md) — a complete OTS and a complete BuS run on the 5-bus AC/DC case.
-- [Optimal transmission switching](ots.md) — the OTS problem specifications.
-- [Busbar splitting](busbar_splitting.md) — the three-stage BuS workflow, which is the more involved one.
-- [Data model](data_model.md) — what `AC_busbars_split` actually does to your network dictionary.
-- [AC feasibility check](feasibility_check.md) — how to verify that a relaxed or approximated topology is
-  AC-feasible.
-- [API reference](api.md) — function-by-function listing.
-- [Known issues and gotchas](known_issues.md) — read this before you spend a day debugging.
+## Installation
+ 
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/Electa-Git/PowerModelsTopologicalActions.jl")
+```
+ 
+Requires Julia ≥ 1.10 and a solver appropriate to your formulation, e.g. MINLP formulation -> Juniper + Ipopt + a MIP solver for the exact MINLP, or Gurobi (recommended and supported)/Mosek/HiGHS for the LPAC approximation.
+ 
+## Quick example
+ 
+```julia
+using PowerModels;                   const _PM     = PowerModels
+using PowerModelsACDC;               const _PMACDC = PowerModelsACDC
+using PowerModelsTopologicalActions; const _PMTP   = PowerModelsTopologicalActions
+using JuMP, Ipopt, Gurobi, Juniper
+ 
+gurobi  = JuMP.optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 1e-4)
+ipopt   = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-6, "print_level" => 0)
+juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
+              "nl_solver" => ipopt, "mip_solver" => gurobi)
+ 
+s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
+ 
+data = _PM.parse_file("data_sources/case5_acdc.m")
+_PMACDC.process_additional_data!(data)
+ 
+# --- baseline ---
+result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
+  
+# --- busbar splitting: prepare → solve → check ---
+data_split, switch_couples, extremes = _PMTP.AC_busbars_split(data, 2)
 
-## A note on maturity
+result_bus = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, gurobi)
+ 
+data_fc = deepcopy(data_split)
+_PMTP.prepare_AC_feasibility_check_AC_busbars(result_bus, data_split, data_fc, switch_couples, extremes, data)
+result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
+ 
+println("baseline:  ", result_opf["objective"])   # 194.139 $/h
+println("after BuS: ", result_fc["objective"])    # 186.349 $/h  → 4.0 % saving
+```
+ 
+Busbar splitting is organized in three stages: prepare the data, optimize and optionally verify the resulting topology is AC-feasible. 
 
-This is research code that accompanies a journal paper. It is capable and the models are
-sound, but it is not a hardened production library: `Pkg.test()` currently runs no
-assertions, one exported name does not resolve, and a few helper functions carry
-`DO NOT USE` markers in the source. The [Known issues and gotchas](known_issues.md) page documents
-every rough edge we are aware of, rather than leaving you to discover them.
+## Documentation
+ 
+Full documentation is in [`docs/`](docs/src):
+ 
+| Page | Contents |
+|---|---|
+| [Installation](docs/src/installation.md) | Solver stacks, settings, bundled test cases |
+| [Quick start](docs/src/quickstart.md) | BuS example on a 5-buses test case |
+| [Optimal transmission switching](docs/src/ots.md) | OTS problem specifications and scaling |
+| [Busbar splitting](docs/src/busbar_splitting.md) | The main contribution of this package |
+| [AC feasibility check](docs/src/feasibility_check.md) | Validating relaxed and approximated topologies |
+| [Formulations](docs/src/formulations.md) | Choosing between ACP, SOC, QC, LPAC, DC |
+| [Data model](docs/src/data_model.md) | What the split functions do to your network dictionary |
+| [API reference](docs/src/api.md) | Function-by-function listing |
+| [Known issues and gotchas](docs/src/known_issues.md) | Known issues highlighted by Claude |
+ 
+To build the HTML docs locally:
+ 
+```console
+$ julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+$ julia --project=docs docs/make.jl
+```
+ 
+## Running the tutorials -> still to be refined
+ 
+ 
+## Status
+ 
+Research code accompanying a peer-reviewed publication. The models are sound and validated
+against the published results, but the package is still being developed to include functionalities described in further publications.
+ 
+Contributions are welcome, particularly: 
+- docstrings on the exported problem specifications
+- configurable big-M values, currently hardcoded per formulation file
+- an API for restricting the switchable element set
+- N-1 security constraints
+- an API visually plotting the results of the grid topology optimization models (switches status and substation topology)
 
 ## Citing
-
-If you use this package in your research, please cite:
-
+ 
 > G. Bastianel, M. Vanin, D. Van Hertem, H. Ergun, "Optimal transmission switching and
-> busbar splitting in hybrid AC/DC grids", *Sustainable Energy, Grids and Networks*, vol.
-> 46, 2026, 102182. [doi:10.1016/j.segan.2026.102182](https://doi.org/10.1016/j.segan.2026.102182)
-
+> busbar splitting in hybrid AC/DC grids", *Sustainable Energy, Grids and Networks*, vol. 46,
+> 2026, 102182. [doi:10.1016/j.segan.2026.102182](https://doi.org/10.1016/j.segan.2026.102182)
+ 
+```bibtex
+@article{bastianel2026topological,
+  title   = {Optimal transmission switching and busbar splitting in hybrid AC/DC grids},
+  author  = {Bastianel, Giacomo and Vanin, Marta and Van Hertem, Dirk and Ergun, Hakan},
+  journal = {Sustainable Energy, Grids and Networks},
+  volume  = {46},
+  pages   = {102182},
+  year    = {2026},
+  doi     = {10.1016/j.segan.2026.102182}
+}
+```
+ 
 ## Acknowledgements
+ 
+Developed as part of WP1 of the [ETF DIRECTIONS project](https://etch.be/en/directions-design-protection-and-control-offshore-dc-power-grids-and-power-hubs), funded by the FOD Economie of the Belgian Government in which [Etch - Energy Transmission Competence Hub](https://etch.be/en) - [EnergyVille](https://energyville.be/en/) and [KU Leuven](https://www.kuleuven.be/kuleuven) collaborated with Elia Group to explore the future of electrical energy hubs.
 
-Developed as part of WP1 of the ETF DIRECTIONS project, funded by the FOD Economie of the
-Belgian Government. Primary developer: Giacomo Bastianel
-([@GiacomoBastianel](https://github.com/GiacomoBastianel)), with contributions from Marta
-Vanin ([@MartaVanin](https://github.com/MartaVanin)).
+Primary developer: 
+Giacomo Bastianel ([@GiacomoBastianel](https://github.com/GiacomoBastianel)).
+
+Contributors: 
+Marta Vanin ([@MartaVanin](https://github.com/MartaVanin)) $\rightarrow$ conceptualization of the package
