@@ -36,8 +36,7 @@ catch err
     false
 end
 
-const SCIP = optimizer_with_attributes(SCIP.Optimizer,
-                      "display/verblevel" => 0)   # silence 
+const SCIP = optimizer_with_attributes(SCIP.Optimizer)   # silence 
 
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
@@ -50,7 +49,7 @@ const GUROBI = GUROBI_AVAILABLE ?
 # so the suite still runs without a Gurobi licence (e.g. forked-PR CI).
 const JUNIPER = optimizer_with_attributes(Juniper.Optimizer,
                   "nl_solver"  => IPOPT,
-                  "mip_solver" => GUROBI_AVAILABLE ? GUROBI : HIGHS,
+                  "mip_solver" => GUROBI_AVAILABLE ? GUROBI : SCIP,
                   "log_levels" => [])
 
 const SETTING = Dict("output" => Dict("branch_flows" => true),
@@ -167,7 +166,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
             result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, GUROBI)
             data_fc = deepcopy(data_split)
             _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, couples, extremes, data)
-            result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
+            result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = SETTING)
 
             @test result_fc["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
             @test isapprox(result_fc["objective"], OBJ_BUS_FC; rtol = 1e-2)
@@ -187,7 +186,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
             data_fc = deepcopy(data_split)
 
             _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, couples, extremes, data)
-            result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, IPOPT; setting = s)
+            result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, IPOPT; setting = SETTING)
 
             @test result_fc["termination_status"] in (LOCALLY_SOLVED, OPTIMAL)
             @test isapprox(result_fc["objective"], OBJ_BUS_FC; rtol = 1e-2)

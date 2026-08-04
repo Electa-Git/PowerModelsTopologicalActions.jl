@@ -1,6 +1,6 @@
 using PowerModels; const _PM = PowerModels
 using JuMP
-using Ipopt, Gurobi, Juniper
+using Ipopt, Gurobi, Juniper, SCIP
 using PowerModelsACDC; const _PMACDC = PowerModelsACDC
 using InfrastructureModels; const _IM = InfrastructureModels
 using JSON
@@ -14,7 +14,7 @@ using PowerModelsTopologicalActions; const _PMTP = PowerModelsTopologicalActions
 gurobi = JuMP.optimizer_with_attributes(Gurobi.Optimizer,"MIPGap" => 1e-4)#,"QCPDual" => 1)
 ipopt = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-6, "print_level" => 0)#,"linear_solver" => "ma97")
 juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer, "nl_solver" => ipopt, "mip_solver" => gurobi, "time_limit" => 36000)
-
+scip = JuMP.optimizer_with_attributes(SCIP.Optimizer)
 #######################################################################################
 ## Parsing input data ##
 #######################################################################################
@@ -45,7 +45,7 @@ data_busbars_ac_split_5_acdc_dc = deepcopy(data_5_acdc)
 data_busbars_ac_split_5_acdc_more_buses = deepcopy(data_5_acdc)
 
 # Selecting which busbars are split
-splitted_bus_ac = 2
+splitted_bus_ac = [1,2,3,4,5]
 splitted_bus_dc = 2
 
 # Preparing data
@@ -64,6 +64,8 @@ ac_bs_ac_dc_ref = deepcopy(data_busbars_ac_split_5_acdc_more_buses)
 # Grid topology optimization models
 result_switches_ac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,ACPPowerModel,juniper)
 result_switches_lpac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,LPACCPowerModel,gurobi)
+result_switches_lpac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,LPACCPowerModel,scip)
+
 
 #result_switches_lpac_dc_ref = _PMTP.run_acdc_BuS_DC(ac_bs_dc_ref,LPACCPowerModel,gurobi)
 #result_switches_lpac_ac_dc_ref  = _PMTP.run_acdc_BuS_AC_DC(ac_bs_ac_dc_ref,LPACCPowerModel,gurobi)
