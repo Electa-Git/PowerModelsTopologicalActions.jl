@@ -10,6 +10,7 @@ using Ipopt
 using HiGHS
 using Juniper
 using Gurobi
+using SCIP
 
 const _PM   = PowerModels
 const _PMACDC = PowerModelsACDC
@@ -34,6 +35,10 @@ catch err
     @warn "Gurobi license unavailable — falling back to HiGHS" err
     false
 end
+
+const SCIP = optimizer_with_attributes(SCIP.Optimizer,
+                      "display/verblevel" => 0)   # silence 
+
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
 
@@ -175,8 +180,12 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
             data = load_case(CASE5)
             data_split, couples, extremes = _PMTP.AC_busbars_split(data, 2)
 
-            result = JSON.parsefile(joinpath(dirname(@__DIR__),"tutorials","results","result_LPAC_BuS_AC_busbar_2.json"))
+            #result = JSON.parsefile(joinpath(dirname(@__DIR__),"tutorials","results","result_LPAC_BuS_AC_busbar_2.json"))
+            
+            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, SCIP)
+            println("Optimal solution obtained through SCIP: ", result["objective"])
             data_fc = deepcopy(data_split)
+
             _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, couples, extremes, data)
             result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, IPOPT; setting = s)
 
