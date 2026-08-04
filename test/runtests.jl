@@ -36,7 +36,7 @@ catch err
     false
 end
 
-const SCIP = optimizer_with_attributes(SCIP.Optimizer)   # silence 
+const SCIP_opt = optimizer_with_attributes(SCIP.Optimizer)   # silence 
 
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
@@ -49,7 +49,7 @@ const GUROBI = GUROBI_AVAILABLE ?
 # so the suite still runs without a Gurobi licence (e.g. forked-PR CI).
 const JUNIPER = optimizer_with_attributes(Juniper.Optimizer,
                   "nl_solver"  => IPOPT,
-                  "mip_solver" => GUROBI_AVAILABLE ? GUROBI : SCIP,
+                  "mip_solver" => GUROBI_AVAILABLE ? GUROBI : SCIP_opt,
                   "log_levels" => [])
 
 const SETTING = Dict("output" => Dict("branch_flows" => true),
@@ -181,7 +181,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
 
             #result = JSON.parsefile(joinpath(dirname(@__DIR__),"tutorials","results","result_LPAC_BuS_AC_busbar_2.json"))
             
-            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, SCIP)
+            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, SCIP_opt)
             println("Optimal solution obtained through SCIP: ", result["objective"])
             data_fc = deepcopy(data_split)
 
