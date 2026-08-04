@@ -8,14 +8,6 @@ conventions throughout: the same network data dictionaries, the same `model_type
 `solver` calling signature, the same `result["solution"]` layout.
 This is the first package able to perform both OTS and busbar splitting on **either part** of a hybrid AC/DC grid. While OTS and BuS have been used for decades in AC grids, they remain largely unexplored on the DC side. Long story short, with this package, one can optimize the grid topology with OTS and BuS, with a deep focus on BuS.
 
-
-An intuition behind BuS process is represented in the following figure:
-
-![Representation of the proposed busbar splitting process.](docs/src/images/BuS_illustration_README.png)
-
-The model output is the status (1 closed, 0 open) of the busbar coupler and each switch, together with all the decision variables usually related to optimal power flow simulations.
- 
-
 ## Capabilities
  
 **Topological actions**
