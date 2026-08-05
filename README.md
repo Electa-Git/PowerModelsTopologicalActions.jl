@@ -41,8 +41,7 @@ The model output is the status (1 closed, 0 open) of the busbar coupler and each
 ## Installation
  
 ```julia
-using Pkg
-Pkg.add(url = "https://github.com/Electa-Git/PowerModelsTopologicalActions.jl")
+   ] add PowerModelsTopologicalActions
 ```
  
 Requires Julia ≥ 1.10 and a solver appropriate to your formulation, e.g. MINLP formulation -> Juniper + Ipopt + a MIP solver for the exact MINLP, or Gurobi (recommended and supported)/Mosek/HiGHS for the LPAC approximation.
