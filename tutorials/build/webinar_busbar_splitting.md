@@ -2,83 +2,74 @@
 EditURL = "../webinar_busbar_splitting.jl"
 ```
 
-# Grid Topology Optimization in Practice
+# Grid Topology Optimization with `PowerModelsTopologicalActions.jl`
 
-## Busbar splitting with `PowerModelsTopologicalActions.jl`
+**Energy Transmission Competence Hub (ETCH) Webinar & Tutorial**
 
-**Webinar — 90 minutes, hands-on**
-
+** Giacomo Bastianel, PhD candidate at KU Leuven / Etch - EnergyVille **
 | | |
 |---|---|
-| **Level** | familiar with OPF; no prior Julia/JuMP experience assumed |
-| **Package** | [`Electa-Git/PowerModelsTopologicalActions.jl`](https://github.com/Electa-Git/PowerModelsTopologicalActions.jl) |
-| **Reference** | Bastianel, Vanin, Van Hertem, Ergun, *Optimal transmission switching and busbar splitting in hybrid AC/DC grids*, SEGAN 46 (2026) 102182 — [doi:10.1016/j.segan.2026.102182](https://doi.org/10.1016/j.segan.2026.102182) |
+| **Level** | familiar with optimal power flow simulations is a plus; no prior Julia/JuMP experience assumed |
+| **Julia Package** | [`Electa-Git/PowerModelsTopologicalActions.jl`](https://github.com/Electa-Git/PowerModelsTopologicalActions.jl) |
+| **References** | G. Bastianel, M. Vanin, D. Van Hertem, H. Ergun, *Optimal transmission switching and busbar splitting in hybrid AC/DC grids*, SEGAN 46 (2026) 102182 — [doi:10.1016/j.segan.2026.102182](https://doi.org/10.1016/j.segan.2026.102182) <br><br> G. Bastianel, D. Van Hertem, H. Ergun and L. A. Roald, *Identifying Best Candidates for Busbar Splitting*, Electric Power Systems Research, Volume 263, 2027, ISSN 0378-7796 - [doi.org/10.1016/j.epsr.2026.113611](https://doi.org/10.1016/j.epsr.2026.113611). |
 
-### Run sheet
+### Menu of the session
 
-| # | Section | Mode | Time |
-|---|---|---|---|
-| 0 | Pre-flight — *do this before the session* | self-service | — |
-| 1 | Why topology optimization at all | discussion | 10 min |
-| 2 | What busbar splitting actually is | discussion | 10 min |
-| 3 | The optimization model | discussion | 15 min |
-| 4 | Hands-on I — the three-stage workflow | live coding | 20 min |
-| 5 | Hands-on II — choosing a formulation | live coding | 10 min |
-| 6 | Hands-on III — which busbar to split | live coding | 10 min |
-| 7 | The DC side and combined AC/DC splitting | live coding | 5 min |
-| 8 | Gotchas that fail silently | discussion | 5 min |
-| 9 | Limitations, roadmap, Q&A | discussion | 5 min |
+| Step | Section | Mode |
+|---|---|---|
+| 0 | Pre-flight — *preparing for the session* | self-service |
+| 1 | Grid topology optimization: state of play | slides presentation |
+| 2 | Our topology optimization models | slides presentation |
+| 3 | Applications of the proposed grid topology optimization models | slides presentation |
+| 4 | Tutorial I — Topology optimization: basics | live coding |
+| 5 | Tutorial II — Identifying relevant areas for topology optimization | live coding |
+| 6 | Next steps | slides presentation |
+| 7 | Q&A | open discussion |
 
 !!! tip "How to use this page"
-    Sections 1–3 and 8–9 are read-and-discuss. Sections 4–7 are meant to be run
-    in order — every snippet depends on the ones above it. The runnable notebook
-    and the plain script are generated from this same source.
+    Step 0 prepares all the packages needed to run the optimization models
+    Steps 1–3 and 6 are complemented by a slide deck, which is available in the repository
+    Steps 4–5 are meant to be run cell by cell, in order. Every code cell depends on the ones above it.
 
 ---
-# 0. Pre-flight — do this *before* the session
-
-Participants who arrive with a working environment get four times as much out of
-the hour. Send this out a week ahead.
+# 0. Pre-flight — preparing for the session
 
 **Requirements**
 
-- Julia ≥ 1.10 (plus [IJulia](https://github.com/JuliaLang/IJulia.jl) for the notebook)
-- A solver stack matching the formulation (see Section 5). For the hands-on you need
-  at least one MIQCP-capable solver — Gurobi is what the package is developed and
-  validated against, and academic licences are free.
-
-The package is not in the Julia General registry yet, hence the URL form:
-
+Run the next cell. The `PowerModelsTopologicalActions.jl` package is live in the Julia General registry too, so it can be added as the other mature packages.
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/Electa-Git/PowerModelsTopologicalActions.jl")
-Pkg.add(["PowerModels", "PowerModelsACDC", "JuMP", "Ipopt", "Juniper", "Gurobi"])
+Pkg.add(["PowerModels", "PowerModelsACDC", "PowerModelsTopologicalActions" , "JuMP", "Ipopt", "Juniper", "SCIP"])
 ```
 
-### The canary test
+### Getting to know the code
 
-If the next block prints **194.139**, you are ready. That number is the baseline for
-everything we do today — keep it somewhere visible.
+If the next block prints **194.139**, you are all set. That number is the baseline for tutorial I and represents the generation costs for the OPF simulation on the 5-bus hybrid AC/DC test case.
 
 ````@example webinar_busbar_splitting
+# Load the packages and define the solvers (note, we use SCIP as the MIP solver for the tutorial as it is available for free, but you can use Gurobi if you have a license)
 using PowerModels;                   const _PM     = PowerModels
 using PowerModelsACDC;               const _PMACDC = PowerModelsACDC
 using PowerModelsTopologicalActions; const _PMTP   = PowerModelsTopologicalActions
-using JuMP, Ipopt, Gurobi, Juniper
+using JuMP, Ipopt, Juniper, SCIP #Gurobi
 
-# ← point this at your local clone, so the bundled test cases are on disk
+# we are setting up the base directory
 const PMTA_DIR = dirname(dirname(pathof(PowerModelsTopologicalActions)))
 
-# --- solvers: the pairing matters, see Section 5 ---------------------------
-gurobi  = JuMP.optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 1e-4)
-ipopt   = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-6, "print_level" => 0)
+# --- solvers and their pairing ---------------------------
+ipopt   = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-6, "print_level" => 0) # nonlinear solver
+scip    = JuMP.optimizer_with_attributes(SCIP.Optimizer, "display/verblevel" => 0, "limits/gap" => 1e-4) # MIP/MINLP solver (free)
 juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
-              "nl_solver" => ipopt, "mip_solver" => gurobi, "time_limit" => 36000)
+              "nl_solver" => ipopt, "mip_solver" => scip, "time_limit" => 36000) # MINLP solver
+# If you have a Gurobi licence: `using Gurobi` in the block above, define the
+# optimizer here, and swap `scip` → `gurobi` in the calls below.
+# gurobi = JuMP.optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0)
 
+# output settings passed to every AC/DC OPF solve (branch flows + converter losses)
 s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 ````
 
-`process_additional_data!` is **not optional** — it builds the DC-grid structures
+`process_additional_data!` is needed when one has hybrid AC/DC grids —> it builds the DC-grid structures
 that every downstream function expects.
 
 ````@example webinar_busbar_splitting
@@ -86,18 +77,19 @@ file = joinpath(PMTA_DIR, "test", "data_sources", "case5_acdc.m")
 data = _PM.parse_file(file)
 _PMACDC.process_additional_data!(data)
 
-println("AC buses: ", length(data["bus"]),
-        " | DC buses: ", length(data["busdc"]),
-        " | converters: ", length(data["convdc"]))
+println("# AC buses: ", length(data["bus"]))
+println("# DC buses: ", length(data["busdc"]))
+println("# Converters: ", length(data["convdc"]))
+
+result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
+
+println("termination: ", result_opf["termination_status"])   ## LOCALLY_SOLVED
+println("primal status: ", result_opf["primal_status"])      ## FEASIBLE_POINT
+println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 ````
 
-!!! note "Facilitator note"
-    Open a shared channel 48 h before the webinar for setup problems. Solver
-    licensing is the only thing that reliably eats webinar time, and it cannot be
-    fixed live.
-
 ---
-# 1. Why topology optimization at all *(10 min)*
+# 1. Grid topology optimization: state of play
 
 **The framing.** Transmission grids are the bottleneck of the energy transition. New
 lines are slow, expensive and politically contested, so the question becomes: how much
@@ -109,70 +101,65 @@ in 2024, USD 8.33 bn in the US, with the JRC projecting European redispatch and
 congestion-management costs toward hundreds of bn€ per year by 2040 under
 business as usual.
 
-**The alternative lever.** Before you pay anyone, you can change how power flows by
-changing the network's topology. Opening a line, or reconfiguring a substation,
-redistributes flows according to Kirchhoff's laws — at essentially zero marginal cost.
+**Ideal** Comparing the transmission grid to a road network, congestion can be
+compared to traffic jams spreading over the main roads, limiting the electricity
+flow. The tutorial describes mathematical models for grid topology
+optimisation, which reroutes electricity around grid congestion by dinamically
+modifying the transmission grid topology through topological actions. These
+topological actions can be compared to traffic lights on the road coupled to
+direction signs on the asphalt, which help vehicles to flow smoothly.
 
-> **Analogy worth using:** redispatch is paying drivers to take a different route.
-> Topology optimization is changing the traffic lights and the direction signs painted
-> on the asphalt. Same road network, different flow pattern, no payment to anyone.
+```
 
-### Two families of action
+   ┌───────────────────────────────┐
+   │                               │
+   │      SLIDES PRESENTATION      │
+   │                               │
+   └──────────-────────────────────┘
 
-| | **Optimal Transmission Switching (OTS)** | **Busbar Splitting (BuS)** |
-|---|---|---|
-| Decision | de-energize a line / DC branch / converter | split a substation into two electrical nodes |
-| Granularity | branch level | node level |
-| Effect | removes a path | creates a new node, increases electrical distance *inside* the substation |
-| Maturity in literature | well established | comparatively unexplored, especially on the DC side |
-| Operator familiarity | high | high in the control room, low in optimization tools |
-
-**Why this package exists.** OTS models are everywhere. BuS models are rare, and none
-before this one handled both actions on **both the AC and the DC side** of a hybrid
-AC/DC grid. That matters as offshore multi-terminal DC grids get built out: they will be
-meshed, and their topology will need optimizing too.
-
-Both actions are increasingly institutionalised: "grid-enhancing technologies" in the
-US, and the CACM (day-ahead/intraday) and ROSC (real-time security coordination)
-methodologies in Europe.
-
+```
 ---
-# 2. What busbar splitting actually is *(10 min)*
+# 2. Our topology optimization models
 
-**Start from the substation, not the model.**
-
-A double-busbar substation has two bars joined by a **coupler**. Coupler closed → the
-whole thing behaves as one electrical node. Coupler open → two nodes, physically
-adjacent, electrically distinct, each with its own voltage magnitude and angle.
+We assume substations to have a double-busbar configuration, where the two busbars are linked by a **busbar coupler**.
+Coupler closed → the substation is one electrical node.
+Coupler open → two nodes, physically adjacent, electrically distinct, each with its own voltage magnitude and angle.
 
 That is the entire physical idea: *splitting a busbar makes electrically close things
-electrically distant, without moving anything.* Every element that was attached to the
-substation — generators, loads, lines, converters — must then be assigned to one half
+electrically distant, without moving anything.*
+Every element that was attached to the
+substation (generators, loads, lines, converters) is then assigned to either one part of the split busbar
 or the other.
 
 ![Busbar splitting](https://raw.githubusercontent.com/Electa-Git/PowerModelsTopologicalActions.jl/main/docs/src/images/BuS_illustration_README.png)
 
 - **Left** — the original busbar `i`, four elements attached.
 - **Centre** — the modelling construct. Busbar `i` is duplicated into `i` and `i′`,
-  joined by a **Zero Impedance Line (ZIL)** acting as the coupler. Each element is
+  joined by a **Zero Impedance Line (ZIL)**, the busbar coupler. Each element is
   detached onto its own **auxiliary bus** and linked to *both* halves through a **pair
   of switches**. Every switch, plus the coupler, carries a binary variable.
-- **Right** — after optimization the open switches are deleted, leaving the realised
+- **Right** — after optimization the open switches are deleted, leaving the optimized
   topology.
 
 **The one-sentence takeaway:** the model does not choose a substation configuration
-from a catalogue — it decides, *per element*, which side of the bar it sits on, and
-whether the bar is one node or two.
+from a subset of available topologies. It optimizes the status of the busbar coupler and *per element*, which side of the bar it is connected to.
 
-**Where the benefit comes from.** Splitting reroutes flows around the binding element
+**Where the benefit comes from.** Splitting the busbar and connecting elements to either part of the split busbar reroutes flows around the binding element
 inside the substation itself. In the 5-bus example we are about to run, splitting a
-single AC busbar buys ≈ 4 % of total generation cost. In a redispatch context, that is
-4 % you did not have to pay a generator for.
+single AC busbar buys ≈ 4 % of total generation cost.
 
+```
+   ┌───────────────────────────────┐
+   │                               │
+   │      SLIDES PRESENTATION      │
+   │                               │
+   └──────────-────────────────────┘
+
+```
 ---
-# 3. The optimization model *(15 min)*
+# 2.1 Formulation of the optimization model
 
-## 3.1 Decision variables
+## 2.1.1 Decision variables
 
 | Variable | Count | Meaning |
 |---|---|---|
@@ -186,11 +173,9 @@ Switch count grows as
 n_{\text{switches}} = \sum_b \left(2 \, n_b\right) + B
 ```
 
-with ``B`` the number of split busbars and ``n_b`` the elements attached to busbar
-``b``. **This is the single most important number in the whole method** — it is why
-splitting every busbar in a 3000-bus network is not something you do.
+with ``B`` the number of split busbars and ``n_b`` the elements attached to busbar ``b``
 
-## 3.2 Constraints
+## 2.2 Constraints
 
 Per switch:
 
@@ -200,6 +185,7 @@ Per switch:
 | `constraint_switch_power_on_off` | no power flows through an open switch |
 | `constraint_switch_thermal_limit` | a closed switch respects its rating |
 
+
 Per switch couple:
 
 | Constraint | Meaning |
@@ -208,13 +194,15 @@ Per switch couple:
 | `constraint_ZIL_switch` | coupler closed (no split) → elements stay on the original half |
 | `constraint_BS_OTS_branch` | both switches open → element disconnected, carries no power |
 
-> **The inequality is the interesting part.** Writing exclusivity as ``\leq 1`` rather
-> than ``= 1`` lets the model leave *both* switches open, i.e. drop the element
+
+> **The inequality needs some attention.** Writing exclusivity as ``\leq 1`` rather
+> than ``= 1`` lets the model leave *both* switches open, i.e. disconnecting the element
 > entirely. That is busbar splitting **with OTS on the affected elements**, in a single
 > formulation. The equality variant `constraint_exclusivity_switch_no_OTS` exists if
 > you want to forbid it, but no shipped problem specification uses it.
 
-## 3.3 The big-M reformulation
+
+## 2.3 The big-M reformulation
 
 "Equal voltage when the switch is closed" is naturally bilinear:
 
@@ -233,56 +221,62 @@ big-M form instead:
 ```
 
 with `M_va = 2π`, `M_vm = 1.0`, `M_dc = 1.0`. These are deliberately conservative and
-**hardcoded** in `src/formdcgrid/{acp,lpac,shared,dcp}.jl`. Tightening them is the
-highest-leverage performance change available if you are fighting solve times — and it
-currently means editing the source.
+**hardcoded** in `src/formdcgrid/{acp,lpac,shared,dcp}.jl`.
 
-## 3.4 The objective
+## 2.4 The objective
 
 ```math
 \min \; \sum_k c_{1k} \, P^g_k \;+\; \sum_{\text{ZIL}} c_{sw}\,(1 - z_{sw})
 ```
 
-Two things to hear **before** running anything:
-
-1. **Only the linear generation cost coefficient is used.** `calc_gen_cost` reads
-   `g["cost"][end-1]`. A quadratic term in your case data is silently ignored —
-   consistent with the paper, which zeroes them, but it means a BuS objective is *not*
-   directly comparable to a PowerModelsACDC OPF objective on the same data.
-2. **Opening a coupler costs 1.0 by default.** Element switches are free. This penalty
-   stops the model splitting busbars gratuitously among equal-cost optima — and on a
-   case with a genuinely small saving it can swamp the benefit, so you see no split at
-   all. If splitting never happens where you expect it, check this first.
-
+One thing to hear **before** running anything:
+   **Opening a coupler costs 1.0 by default.** Element switches are free. This penalty
+   stops the model splitting busbars gratuitously among equal-cost optimal solutions and on a
+   case with a genuinely small saving it can swamp the benefit, so one sees no split at all.
 ---
-# 4. Hands-on I — the three-stage workflow *(20 min)*
-
-This is the core of the session. Everything else is a variation on it.
+# 3. Applications of the proposed grid topology optimization models
+  Examples from SEGAN and PSCC papers
 
 ```
-   ┌─────────────────────┐
-   │   1. PREPARE DATA   │  AC_busbars_split / DC_busbars_split
-   │                     │  → expand the network with auxiliary buses + switches
-   └──────────┬──────────┘
-              │  data_split, switch_couples, extremes_ZIL
-              ▼
-   ┌─────────────────────┐
-   │    2. OPTIMIZE      │  run_acdc_BuS_AC / _DC / _AC_DC
-   │                     │  → switch states as decision variables
-   └──────────┬──────────┘
-              │  result
-              ▼
-   ┌─────────────────────┐
-   │  3. FEASIBILITY     │  prepare_AC_feasibility_check_*  then a plain AC/DC OPF
-   │      CHECK          │  → verifies AND prices the topology
-   └─────────────────────┘
+
+   ┌───────────────────────────────┐
+   │                               │
+   │      SLIDES PRESENTATION      │
+   │                               │
+   └──────────-────────────────────┘
+
 ```
+---
 
-## 4.1 Always solve the baseline first
+# 4. Tutorial I — Topology optimization: basics
 
-Two reasons: it is the reference any topological action must beat, and it tells you
-immediately whether the case itself is feasible. Debugging a BuS model on an infeasible
-case is a bad afternoon.
+This is the core of the proposed grid topologyoptimization model.
+
+```
+  ┌─────────────────────┐
+  │                     │   AC_busbars_split / DC_busbars_split
+  │   1. PREPARE DATA   │   → expands the network with auxiliary
+  │                     │     buses and switches by selecting which busbars to split
+  └──────────┬──────────┘
+             │  created dictionaries: data_split, switch_couples, extremes_ZIL
+             ▼
+  ┌─────────────────────┐
+  │                     │   model:
+  │    2. OPTIMIZE      │   run_acdc_BuS_AC / _DC / _AC_DC
+  │                     │   → switch states as decision binary variables + normal OPF variables
+  └──────────┬──────────┘
+             │  result
+             ▼
+  ┌─────────────────────┐
+  │                     │
+  │  3. FEASIBILITY     │   prepare_AC_feasibility_check_* (fixing the switch states and the optimized topology)
+  │        CHECK        │   then a plain AC/DC OPF
+  │                     │   → feasibility check and computation of the benefits brought by the optimized topology
+  └─────────────────────┘
+```
+## 4.1 Prepare data
+
+Running an AC/DC OPF on the 5-bus hybrid test case, and storing the result for later comparison.
 
 ````@example webinar_busbar_splitting
 result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
@@ -291,38 +285,17 @@ println("termination: ", result_opf["termination_status"])   ## LOCALLY_SOLVED
 println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 ````
 
-## 4.2 Stage 1 — prepare the network
-
-Three return values, and **two of them are needed again in stage 3**:
-
-- `data_bus` — a *new* dictionary (the input is not mutated) with busbar 2 duplicated,
-  its elements moved onto auxiliary buses, and switches inserted.
-- `switch_couples` — the switch pairs whose exclusivity constraint decides where each
-  element lands.
-- `extremes_ZIL` — maps each split busbar to the indices of its two halves.
-
-To split several busbars at once, pass a vector:
-`_PMTP.AC_busbars_split(data, [1, 2, 3, 4, 5])`.
+Preparation of the busbar splitting data structures. The busbar to split is bus 2
 
 ````@example webinar_busbar_splitting
 bus_to_split = 2
 
 data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_split)
-
-# defend yourself — see Section 7 for why this assertion exists
-@assert !isempty(data_bus["switch_couples"])
-
-println("buses before: ", length(data["bus"]), " → after: ", length(data_bus["bus"]))
-println("switches created: ", length(data_bus["switch"]))
-println("switch couples:   ", length(switch_couples))
 ````
 
-### Pause and inspect the data model
+**Before:**
 
-Worth two minutes live — it demystifies everything that follows.
-
-**Before** `AC_busbars_split(data, 2)`:
-
+````@example webinar_busbar_splitting
 ```
         gen 1     load 1
            │         │
@@ -330,9 +303,11 @@ Worth two minutes live — it demystifies everything that follows.
                 │       │
           branch 3   branch 5
 ```
+````
 
-**After:**
+**After `AC_busbars_split(data, bus_to_split)`:**
 
+````@example webinar_busbar_splitting
 ```
      gen 1        load 1      branch 3     branch 5
         │            │            │            │
@@ -341,50 +316,75 @@ Worth two minutes live — it demystifies everything that follows.
     sw4   sw5    sw6   sw7    sw8   sw9   sw10  sw11
      │     │      │     │      │     │      │     │
  ────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
-           │            │            │            │      │
-           │            │            │            │      └───┐
-           │            │            │            │          ╱  sw1 (ZIL coupler)
-           │            │            │            │      ┌───┘
-           │            │            │            │      │
+           │            |            |            |      │
+           |            |            |            |      └───┐
+           |            |            |            |          ／  sw1 (ZIL)
+           |            |            |            |      ┌───┘
+           |            |            |            |      │
    ────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2'
+
+
 ```
+````
+
+Every element now has its own auxiliary bus and a pair of switches, one to each half. The ZIL busbar coupler `sw1 (ZIL)` decides whether the two halves are one node or two.
+
+Three return values, and **two of them are needed again in the feasibility check**:
+
+- `data_bus` — a *new* dictionary (the input is not mutated) with busbar 2 duplicated,
+  its elements moved onto auxiliary buses, and switches inserted.
+- `switch_couples` — the switch pairs whose exclusivity constraint decides where each
+  element lands →  one can check all the couples of switches for each network element.
+- `extremes_ZIL` — maps each split busbar to the indices of its two halves, thus the extremes of each busbar coupler
+
+## 4.1 Inspect the data structure:
+### The original busbar and its second half:
 
 ````@example webinar_busbar_splitting
-# the original busbar and its second half
 @show data_bus["bus"]["2"]["split"]          ## true  — nominated for splitting
 @show data_bus["bus"]["6"]["ZIL"]            ## true  — the second half
 @show data_bus["bus"]["6"]["bus_split"]      ## 2     — derives from busbar 2
+````
 
-# an auxiliary bus hosting a detached element
+### An auxiliary bus hosting a detached element:
+
+````@example webinar_busbar_splitting
 @show data_bus["bus"]["9"]["auxiliary_bus"]  ## true
 @show data_bus["bus"]["9"]["auxiliary"]      ## "gen"
 @show data_bus["bus"]["9"]["original"]       ## 1  — which generator
+````
 
-# the two kinds of switch
+### The two kinds of switch:
+
+````@example webinar_busbar_splitting
 @show data_bus["switch"]["1"]["ZIL"]         ## true  — the coupler, index 1
 @show data_bus["switch"]["4"]["auxiliary"]   ## "gen" — an element switch
 @show switch_couples["4"];
 nothing #hide
 ````
 
+To split several busbars at once, pass a vector, e.g.
+`_PMTP.AC_busbars_split(data, [1, 2, 3, 4, 5])`.
+
+## 4.2 Optimize
+
 > **The discriminator used throughout the source** is the presence or absence of the
 > `"auxiliary"` key: **couplers lack it, element switches have it.**
 > `calc_ac_switch_cost` charges only switches without it; `compute_couples_of_switches`
 > pairs only switches with it.
 
-## 4.3 Stage 2 — optimize
-
-Two formulations, same problem specification. We look at *why* in Section 5; for now,
-run both and watch the clock.
+Two formulations, same problem specification.
+The exact AC model is a MINLP, so it goes to `juniper`;
+every approximate/relaxed formulation goes to the free MIP solver `scip`.
 
 ````@example webinar_busbar_splitting
 # exact MINLP — slow, exact (local optimum)
 @time result_bus_ac = _PMTP.run_acdc_BuS_AC(data_bus, ACPPowerModel, juniper)
 
 # LPAC approximation — far faster, and what you will actually use
-@time result_bus_lpac = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, gurobi)
+@time result_bus_lpac = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, scip)
 
-println("AC-BuS   objective: ", result_bus_ac["objective"])
+println("AC-BuS MINLP objective: ", result_bus_ac["objective"])
 println("LPAC-BuS objective: ", result_bus_lpac["objective"],
         "  ← not comparable to the AC baseline!")
 ````
@@ -407,8 +407,8 @@ for sw_id in 1:length(data_bus["switch"])
 end
 ````
 
-> **The interpretation rule — say it twice.** A busbar was actually split **if and only
-> if its coupler is open**. An element switch being open only tells you which side that
+> **The interpretationL** A busbar was actually split **if and only
+> if its coupler is open**, and at least one network element is connected to each part of the split busbar. An element switch being open only tells you which side that
 > element chose — or, if *both* switches of a couple are open, that the element was
 > dropped from the network entirely.
 
@@ -416,15 +416,13 @@ end
     Even declared-binary variables come back as `0.9999999` or `3.2e-9`.
     Use `sw["status"] < 0.01`, never `sw["status"] == 0` — the latter silently never fires.
 
-DC switch results live under `result["solution"]["dcswitch"]`, with the same `status` key.
-
 ## 4.4 Stage 3 — check AC feasibility, and price the topology
 
 LPAC is an **approximation**, not a relaxation. Its objective is neither an upper nor a
-lower bound, and its topology carries no feasibility guarantee.
+lower bound of the full AC formulation, and its topology carries no feasibility guarantee.
 
 The check settles both questions at once: freeze the topology into a fixed network,
-strip out all the switch scaffolding, and solve an ordinary AC/DC OPF on it.
+removes all the switches, and solve an ordinary AC/DC OPF on it.
 
 !!! warning "The third argument is mutated in place"
     `prepare_AC_feasibility_check_*` mutates its third argument and its return value is
@@ -444,16 +442,17 @@ _PMTP.prepare_AC_feasibility_check_AC_busbars(
 
 result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = s)
 
-saving = 100 * (result_opf["objective"] - result_fc["objective"]) / result_opf["objective"]
+saving_ac = 100 * (result_opf["objective"] - result_bus_ac["objective"]) / result_opf["objective"]
+saving_lpac = 100 * (result_opf["objective"] - result_fc["objective"]) / result_opf["objective"]
 
-println("termination: ", result_fc["termination_status"])
-println("baseline:    ", result_opf["objective"], " USD/h")
-println("after BuS:   ", result_fc["objective"],  " USD/h")
-println("saving:      ", round(saving, digits = 2), " %")
+println("termination feasibility check: ", result_fc["termination_status"])
+println("---")
+println("baseline AC OPF:    ", result_opf["objective"], " USD/h")
+println("after BuS AC (MINLP):   ", result_bus_ac["objective"],  " USD/h")
+println("after BuS LPAC (MIQCP):   ", result_fc["objective"],  " USD/h")
+println("saving AC:      ", round(saving_ac, digits = 2), " %")
+println("saving LPAC:      ", round(saving_lpac, digits = 2), " %")
 ````
-
-The function prints every reconnection it makes. That is deliberate — when a check
-fails unexpectedly, the log is how you find out which element ended up where.
 
 ### Interpreting the outcome
 
@@ -463,16 +462,17 @@ fails unexpectedly, the log is how you find out which element ended up where.
 | Converged, objective **above** baseline | AC-feasible but useless — the apparent saving was formulation error. |
 | Infeasible | Not physically realizable. Discard it. |
 
+
 Across the published cases, LPAC-BuS topologies produced no infeasible outcomes — but
 that is empirical, not a guarantee.
 
-!!! danger "The comparison trap — spend a minute here"
+!!! danger "The comparison trap"
     LPAC-BuS reports **181.909 USD/h** against an AC-OPF baseline of **194.139 USD/h**.
     That is **not** a 6.3 % saving. The LPAC-*OPF* of the same untouched network already
-    reports **183.924 USD/h**, so most of that gap is *formulation error*, not topology
+    reports **183.924 USD/h**, so most of that gap is *formulation difference*, not topology
     benefit. Only ever compare like with like: AC-OPF baseline vs AC-OPF on the
     optimized topology. This is the single most common way people overstate
-    topology-optimization results.
+    topology-optimization results. One can also compare LPAC-BuS vs LPAC-OPF, but that is a comparison of two approximations, not a physical AC reality check.
 
 ````@example webinar_busbar_splitting
 # Demonstrating the trap explicitly
@@ -484,7 +484,7 @@ println("LPAC-BuS (optimized topology):          ", result_bus_lpac["objective"]
 println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"], "  ← the only honest comparison")
 ````
 
-## 4.5 Exercise *(3 minutes)*
+## 4.5 Exercise
 
 > Split busbar **3** instead of 2. Does the coupler open? Is the resulting topology
 > AC-feasible, and is it better or worse than splitting busbar 2?
@@ -493,7 +493,7 @@ println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"], "  �
 bus_try = 3
 
 data_try, sw_try, ext_try = _PMTP.AC_busbars_split(data, bus_try)
-res_try = _PMTP.run_acdc_BuS_AC(data_try, LPACCPowerModel, gurobi)
+res_try = _PMTP.run_acdc_BuS_AC(data_try, LPACCPowerModel, scip)
 
 fc_try = deepcopy(data_try)
 _PMTP.prepare_AC_feasibility_check_AC_busbars(res_try, data_try, fc_try, sw_try, ext_try, data)
@@ -504,199 +504,14 @@ println("objective:      ", result_try["objective"], " vs baseline ", result_opf
 ````
 
 ---
-# 5. Hands-on II — choosing a formulation *(10 min)*
-
-The AC power flow equations are non-convex. Add binaries and you have a MINLP. The
-package offers a ladder of trade-offs.
-
-| Formulation | Class | Solver | Guarantee |
-|---|---|---|---|
-| `ACPPowerModel` — AC polar | MINLP | Juniper + Ipopt + MIP | exact, **local** optimum |
-| `LPACCPowerModel` — LPAC cold start | MIQCP | Gurobi | none — approximation |
-| `SOCWRPowerModel` | MISOCP | Gurobi, Mosek | lower bound |
-| `QCRMPowerModel` | MIQCP | Gurobi | lower bound, tighter than SOC |
-| `DCPPowerModel` | MILP | Gurobi, HiGHS | none — approximation |
-
-**Getting the solver–formulation pairing wrong is the most common source of confusing
-failures:** `juniper` for `ACPPowerModel`, `gurobi` for everything else.
-
-### Results on `case5_acdc.m`, all AC busbars splittable
-
-| Model | BuS obj. [USD/h] | Time [s] | After feasibility check [USD/h] | Benefit |
-|---|---|---|---|---|
-| AC-OPF baseline | — | 0.014 | — | — |
-| AC-BuS big-M | 184.972 | 232.4 | 183.972 | 5.24 % |
-| LPAC-BuS | 181.909 | 0.45 | 186.349 | 4.01 % |
-| SOC-BuS | 183.763 | 0.30 | 194.139 | none |
-| QC-BuS | 183.761 | 0.33 | 194.139 | none |
-
-### Scaling, AC busbar split
-
-| Case | AC-BuS [s] | LPAC-BuS [s] | speed-up |
-|---|---|---|---|
-| 39-bus | 30.3 | 0.5 | 61× |
-| 67-bus | 118.1 | 0.5 | 236× |
-| 588-bus | 958.1 | 58.8 | 16× |
-| 3120-bus | 12 560 | 534 | 24× |
-
-At 3120 buses the exact model takes three and a half hours. LPAC takes nine minutes.
-
-### Three conclusions worth stating explicitly
-
-1. **LPAC is the default.** Unlike the classical DC approximation it keeps voltage
-   magnitudes and reactive power, so its topologies survive the AC feasibility check —
-   it captures most of the achievable saving at 10–200× the speed.
-2. **SOC and QC are for bounding, not for generating topologies.** On the tested cases
-   they return the original topology unchanged. Useful for knowing how far from optimal
-   you might be; useless as a search method.
-3. **Production recipe:** LPAC to search → AC feasibility check to validate and price →
-   ACP to confirm the final candidate if you need the exact number.
-
-Note also that **OTS is implemented for the exact formulation only** — `run_acdcots_*`
-with `LPACCPowerModel` is not supported. The relaxation strategy would transfer; it
-just has not been done.
-
-````@example webinar_busbar_splitting
-# Reproduce the formulation comparison: SOC and QC are expected to leave the topology alone
-for (name, form) in [("SOC", SOCWRPowerModel), ("QC", QCRMPowerModel)]
-    res = _PMTP.run_acdc_BuS_AC(data_bus, form, gurobi)
-    println(rpad(name, 5), " coupler status: ", res["solution"]["switch"]["1"]["status"],
-            "  objective: ", res["objective"])
-end
-````
+# 5. Tutorial II — Identifying relevant areas for topology optimization
+To be completed
 
 ---
-# 6. Hands-on III — which busbar do you split? *(10 min)*
-
-The combinatorics forbid splitting everything, so the practical method from the paper
-is a **screening pass**: run the cheap model once per candidate, check each topology,
-keep the winner.
-
-````@example webinar_busbar_splitting
-best = (bus = nothing, obj = result_opf["objective"])
-
-for b in keys(data["bus"])
-    bus_id = parse(Int, b)
-
-    data_b, sw, ext = _PMTP.AC_busbars_split(data, bus_id)
-    res = _PMTP.run_acdc_BuS_AC(data_b, LPACCPowerModel, gurobi)
-
-    data_b_fc = deepcopy(data_b)
-    _PMTP.prepare_AC_feasibility_check_AC_busbars(res, data_b, data_b_fc, sw, ext, data)
-    fc = _PMACDC.solve_acdcopf(data_b_fc, ACPPowerModel, ipopt; setting = s)
-
-    println("busbar $bus_id → ", fc["termination_status"], "  obj ", fc["objective"])
-
-    if fc["termination_status"] == LOCALLY_SOLVED && fc["objective"] < best.obj
-        global best = (bus = bus_id, obj = fc["objective"])
-    end
-end
-
-best
-````
-
-This is *n* cheap solves instead of one intractable one. It scales linearly in the
-number of candidate busbars — fine for 5 or 67 buses, still unpleasant for 3120.
-
-**The better answer is a priori ranking:** screen candidates by structural and
-sensitivity metrics *before* solving anything. That is exactly the subject of the
-follow-up work — G. Bastianel, D. Van Hertem, H. Ergun, L. A. Roald, *Identifying Best
-Candidates for Busbar Splitting*, EPSR 263 (2027),
-[doi:10.1016/j.epsr.2026.113611](https://doi.org/10.1016/j.epsr.2026.113611).
-
-It is the difference between a research demo and something that fits inside an
-operational time window.
+# 6. Next steps
 
 ---
-# 7. The DC side and combined AC/DC splitting *(5 min)*
-
-Same three stages, different entry points. This DC capability is the package's novelty
-— and it is where it will matter most, since offshore multi-terminal DC grids are being
-planned now and nobody is currently optimizing their substation topologies.
-
-````@example webinar_busbar_splitting
-# --- DC side only ---------------------------------------------------------
-data_dc, dcswitch_couples, extremes_dc = _PMTP.DC_busbars_split(data, 2)
-result_dc = _PMTP.run_acdc_BuS_DC(data_dc, LPACCPowerModel, gurobi)
-
-println("DC coupler status: ", result_dc["solution"]["dcswitch"]["1"]["status"])
-````
-
-!!! danger "Order matters — and getting it wrong fails *silently*"
-    `AC_busbars_split` must come **first**. Called second, it wipes the DC couples. The
-    model then iterates an empty `:dcswitch_couples`, never posts
-    `constraint_exclusivity_dc_switch`, `constraint_ZIL_dc_switch` or
-    `constraint_BS_OTS_dcbranch`, solves happily, and returns an **over-optimistic,
-    meaningless** answer — because DC elements are free to connect to both halves of a
-    busbar at once. There is no error and no warning. Assert.
-
-````@example webinar_busbar_splitting
-# --- both sides: AC FIRST, then DC -----------------------------------------
-data_both, sw_ac, ext_ac = _PMTP.AC_busbars_split(data, 2)
-data_both, sw_dc, ext_dc = _PMTP.DC_busbars_split(data_both, 2)
-
-@assert !isempty(data_both["switch_couples"])
-@assert !isempty(data_both["dcswitch_couples"])
-
-result_both = _PMTP.run_acdc_BuS_AC_DC(data_both, LPACCPowerModel, gurobi)
-
-println("AC coupler: ", result_both["solution"]["switch"]["1"]["status"])
-println("DC coupler: ", result_both["solution"]["dcswitch"]["1"]["status"])
-````
-
----
-# 8. Gotchas that fail silently *(5 min)*
-
-Every item below produces a plausible number that is wrong. Worth keeping open whenever
-you use the package.
-
-| Gotcha | Symptom | Fix |
-|---|---|---|
-| Binaries returned as floats | `status == 0` never fires | threshold at `< 0.01` |
-| Coupler penalty (`cost = 1.0`) | no split where you expect one | lower the penalty on ZIL switches, re-run |
-| Quadratic gen costs ignored | objective ≠ PowerModelsACDC OPF objective | linearize cost curves, or compare only within this package |
-| Switch ratings default to 100 p.u. | ratings never bind | set `psw`, `qsw`, `thermal_rating` explicitly after preparation |
-| `AC_busbars_split` owns `data["switch"]` | pre-existing switches overwritten; `KeyError` if the key is absent | start from a case with no switches |
-| Some split functions mutate | original data silently modified | `AC_busbars_split` / `DC_busbars_split` **copy**; `AC_busbar_split_AC_grid` and `AC_busbars_split_ordered` **mutate** — `deepcopy` first |
-| Empty `switch_couples` | constraints silently not posted, model still solves | assert non-empty before solving |
-| `runtests.jl` is empty | `Pkg.test()` passes trivially | validate against published numbers: **194.139** baseline, **184.972** AC-BuS |
-
-### If the MINLP will not converge
-
-Expected above roughly 100 buses with everything switchable. In order of effectiveness:
-
-1. Switch to `LPACCPowerModel` + AC feasibility check.
-2. Split one busbar instead of all of them.
-3. Restrict the switchable element set.
-4. Warm-start the ACP solve from an LPAC solution via `prepare_starting_value_dict`.
-5. Tighten the big-M constants.
-
-### Memory blow-up on large cases
-
-Splitting all busbars in a 3120-bus network generates tens of thousands of switches.
-Split one busbar at a time.
-
-Making the "ratings never bind" gotcha concrete — switches default to 100 p.u., which
-on a 100 MVA base is 10 GVA:
-
-````@example webinar_busbar_splitting
-for (id, sw) in data_bus["switch"]
-    sw["thermal_rating"] = 3.0
-    sw["psw"] = 3.0
-    sw["qsw"] = 3.0
-end
-
-result_bounded = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, gurobi)
-println("with realistic switch ratings — coupler: ",
-        result_bounded["solution"]["switch"]["1"]["status"],
-        "  objective: ", result_bounded["objective"])
-````
-
----
-# 9. Limitations, roadmap, Q&A *(5 min)*
-
-Be straight about these. They are also the research agenda, and they generate the best
-questions.
+# 7. Limitations, roadmap, Q&A *(5 min)*
 
 - **Double-busbar configurations only.** Breaker-and-a-half and double-bus-double-breaker
   are not modelled.
@@ -714,15 +529,6 @@ questions.
   — and that code is planned for the repository.
 - **Ranking, not enumeration.** See Section 6.
 
-### Contributions explicitly wanted
-
-Docstrings on the exported problem specifications · configurable big-M values · an API
-for restricting the switchable element set · N-1 constraints · and — genuinely useful
-and currently missing — **a plotting tool that shows the optimized substation topology
-and switch states**. If your audience has one frontend-inclined person, this is the ask.
-
-> **Suggested closing question:** *in your control room, which is the harder sell — the
-> model's recommendation, or the absence of an N-1 check behind it?*
 
 ---
 # Appendix — Bundled test cases and further reading
