@@ -37,10 +37,8 @@
 # **Requirements**
 #
 # Run the next cell. The `PowerModelsTopologicalActions.jl` package is live in the Julia General registry too, so it can be added as the other mature packages.
-# ```julia
-# using Pkg
-# Pkg.add(["PowerModels", "PowerModelsACDC", "PowerModelsTopologicalActions" , "JuMP", "Ipopt", "Juniper", "SCIP"])
-# ```
+ using Pkg
+ Pkg.add(["PowerModels", "PowerModelsACDC", "PowerModelsTopologicalActions" , "JuMP", "Ipopt", "Juniper", "SCIP"])
 #
 # ### Getting to know the code
 #

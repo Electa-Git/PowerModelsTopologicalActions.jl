@@ -28,11 +28,10 @@
 # **Requirements**
 #
 # Run the next cell. The `PowerModelsTopologicalActions.jl` package is live in the Julia General registry too, so it can be added as the other mature packages.
-# ```julia
-# using Pkg
-# Pkg.add(["PowerModels", "PowerModelsACDC", "PowerModelsTopologicalActions" , "JuMP", "Ipopt", "Juniper", "SCIP"])
-# ```
-#
+
+ using Pkg
+ Pkg.add(["PowerModels", "PowerModelsACDC", "PowerModelsTopologicalActions" , "JuMP", "Ipopt", "Juniper", "SCIP"])
+
 # ### Getting to know the code
 #
 # If the next block prints **194.139**, you are all set. That number is the baseline for tutorial I and represents the generation costs for the OPF simulation on the 5-bus hybrid AC/DC test case.
