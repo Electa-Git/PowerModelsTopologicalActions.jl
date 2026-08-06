@@ -106,7 +106,7 @@ $ julia --project=docs docs/make.jl
 ```
  
 ## Running the tutorials 
-An first version of a tutorial can be found in the [tutorials folder](tutorials/build) in different forms:
+A first version of a tutorial can be found in the [tutorials folder](tutorials/build) in different forms:
 - to be run with Google Colab: [webinar_busbar_splitting.ipynb](tutorials/build/webinar_busbar_splitting.ipynb)
 - Julia file: [webinar_busbar_splitting.jl](tutorials/build/webinar_busbar_splitting.jl)
 - Markdown file: [webinar_busbar_splitting.md](tutorials/build/webinar_busbar_splitting.md)

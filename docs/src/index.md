@@ -40,6 +40,13 @@ This is the first package able to perform both OTS and busbar splitting on **eit
 - [API reference](api.md) — function-by-function listing.
 - [Known issues and gotchas](known_issues.md) — read this before you spend a day debugging.
 
+## Running the tutorials 
+A first version of a tutorial can be found in the [tutorials folder](tutorials/build) in different forms:
+- to be run with Google Colab: [webinar_busbar_splitting.ipynb](tutorials/build/webinar_busbar_splitting.ipynb)
+- Julia file: [webinar_busbar_splitting.jl](tutorials/build/webinar_busbar_splitting.jl)
+- Markdown file: [webinar_busbar_splitting.md](tutorials/build/webinar_busbar_splitting.md)
+
+
 ## Status
  
 Research code accompanying a peer-reviewed publication. The models are sound and validated
