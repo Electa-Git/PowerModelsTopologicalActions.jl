@@ -225,7 +225,7 @@ println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 # \min \; \sum_k c_{1k} \, P^g_k \;+\; \sum_{\text{ZIL}} c_{sw}\,(1 - z_{sw})
 # ```
 #
-# One thing to hear **before** running anything:
+#    One thing to hear **before** running anything:
 #    **Opening a coupler costs 1.0 by default.** Element switches are free. This penalty
 #    stops the model splitting busbars gratuitously among equal-cost optimal solutions and on a
 #    case with a genuinely small saving it can swamp the benefit, so one sees no split at all. 
@@ -284,34 +284,32 @@ bus_to_split = 2
 data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_split)
 
 # **Before:**
-
-```
-        gen 1     load 1
-           │         │
-    ───────┴────┬────┴──┬────      busbar 2
-                │       │
-          branch 3   branch 5
-```
-
+#
+#        gen 1     load 1
+#           │         │
+#    ───────┴────┬────┴──┬────      busbar 2
+#                │       │
+#          branch 3   branch 5
+#
+#
 # **After `AC_busbars_split(data, bus_to_split)`:**
-
-```
-     gen 1        load 1      branch 3     branch 5
-        │            │            │            │
-    aux bus 9    aux bus 10   aux bus 11   aux bus 12
-       ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲
-    sw4   sw5    sw6   sw7    sw8   sw9   sw10  sw11
-     │     │      │     │      │     │      │     │
- ────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
-           │            |            |            |      │
-           |            |            |            |      └───┐  
-           |            |            |            |          ／  sw1 (ZIL) 
-           |            |            |            |      ┌───┘
-           |            |            |            |      │
-   ────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2'
-   
-          
-```
+#
+#
+#     gen 1        load 1      branch 3     branch 5
+#        │            │            │            │
+#    aux bus 9    aux bus 10   aux bus 11   aux bus 12
+#       ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲
+#    sw4   sw5    sw6   sw7    sw8   sw9   sw10  sw11
+#     │     │      │     │      │     │      │     │
+# ────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
+#           │            |            |            |      │
+#           |            |            |            |      └───┐  
+#           |            |            |            |          ／  sw1 (ZIL) 
+#           |            |            |            |      ┌───┘
+#           |            |            |            |      │
+#   ────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2'
+#         
+#
 # Every element now has its own auxiliary bus and a pair of switches, one to each half. The ZIL busbar coupler `sw1 (ZIL)` decides whether the two halves are one node or two.
 #
 # Three return values, and **two of them are needed again in the feasibility check**:
@@ -378,7 +376,7 @@ for sw_id in 1:length(data_bus["switch"])
     end
 end
 
-# > **The interpretationL** A busbar was actually split **if and only
+# > **The interpretation:** A busbar was actually split **if and only
 # > if its coupler is open**, and at least one network element is connected to each part of the split busbar. An element switch being open only tells you which side that
 # > element chose — or, if *both* switches of a couple are open, that the element was
 # > dropped from the network entirely.
@@ -514,8 +512,7 @@ println("objective:      ", result_try["objective"], " vs baseline ", result_opf
 # **Further reading**
 #
 # - **Main reference.** G. Bastianel, M. Vanin, D. Van Hertem, H. Ergun, "Optimal
-#   transmission switching and busbar splitting in hybrid AC/DC grids," *SEGAN* 46 (2026)
-#   102182. [doi:10.1016/j.segan.2026.102182](https://doi.org/10.1016/j.segan.2026.102182)
+#   transmission switching and busbar splitting in hybrid AC/DC grids," *SEGAN* 46 (2026), 102182. [doi:10.1016/j.segan.2026.102182](https://doi.org/10.1016/j.segan.2026.102182)
 # - **Candidate selection.** "Identifying Best Candidates for Busbar Splitting," *EPSR*
 #   263 (2027). [doi:10.1016/j.epsr.2026.113611](https://doi.org/10.1016/j.epsr.2026.113611)
 # - **Under uncertainty.** "Day-ahead transmission grid topology optimization considering

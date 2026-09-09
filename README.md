@@ -133,7 +133,7 @@ Contributions are welcome, particularly:
 ```bibtex
 @article{bastianel2026topological,
   title   = {Optimal transmission switching and busbar splitting in hybrid AC/DC grids},
-  author  = {Bastianel, Giacomo and Vanin, Marta and Van Hertem, Dirk and Ergun, Hakan},
+  author  = {Bastianel, Giacomo and Vanin, Marta and {Van Hertem}, Dirk and Ergun, Hakan},
   journal = {Sustainable Energy, Grids and Networks},
   volume  = {46},
   pages   = {102182},

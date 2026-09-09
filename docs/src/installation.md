@@ -12,9 +12,9 @@
 The package is not yet in the Julia General registry, so install it directly from GitHub:
 
 ```julia
-using Pkg
-Pkg.add(url = "https://github.com/Electa-Git/PowerModelsTopologicalActions.jl")
+   ] add PowerModelsTopologicalActions
 ```
+ 
 
 Or, for development:
 
