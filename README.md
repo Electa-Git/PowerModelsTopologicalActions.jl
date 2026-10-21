@@ -96,7 +96,6 @@ Full documentation is in [`docs/`](docs/src):
 | [Formulations](docs/src/formulations.md) | Choosing between ACP, SOC, QC, LPAC, DC |
 | [Data model](docs/src/data_model.md) | What the split functions do to your network dictionary |
 | [API reference](docs/src/api.md) | Function-by-function listing |
-| [Known issues and gotchas](docs/src/known_issues.md) | Known issues highlighted by Claude |
  
 To build the HTML docs locally:
  
