@@ -30,7 +30,7 @@
 # Run the next cell. The `PowerModelsTopologicalActions.jl` package is live in the Julia General registry too, so it can be added as the other mature packages.
 
  using Pkg
- Pkg.add(["PowerModels", "PowerModelsACDC", "PowerModelsTopologicalActions" , "JuMP", "Ipopt", "Juniper", "SCIP"])
+ Pkg.add(["PowerModels", "PowerModelsACDC" , "JuMP", "Ipopt", "Juniper", "SCIP"])
 
 # ### Getting to know the code
 #
@@ -248,7 +248,7 @@ println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 #              ▼
 #   ┌─────────────────────┐
 #   │                     │   model:
-#   │    2. OPTIMIZE      │   run_acdc_BuS_AC / _DC / _AC_DC
+#   │    2. OPTIMIZE      │   run_BuS_AC / _DC / _AC_DC
 #   │                     │   → switch states as decision binary variables + normal OPF variables
 #   └──────────┬──────────┘
 #              │  result
@@ -275,36 +275,42 @@ bus_to_split = 2
 
 data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_split)
 
+for (sw_id,sw) in data_bus["switch"]
+       if haskey(sw,"auxiliary")
+       println([sw_id,sw["auxiliary"],sw["original"],sw["f_bus"]])
+       else
+       println(sw_id)
+       end
+    end
 # **Before:**
-
+#=
 ```
-        gen 1     load 1
-           │         │
-    ───────┴────┬────┴──┬────      busbar 2
-                │       │
-          branch 3   branch 5
+        gen 2     load 1      convdc 1                    
+           │         │            │                  
+    ───────┴────┬────┴──┬─────────┴──┬───────┬────      busbar 2
+                │       │            │       │
+          branch 1   branch 3    branch 4   branch 5
 ```
 
 # **After `AC_busbars_split(data, bus_to_split)`:**
 
 ```
-     gen 1        load 1      branch 3     branch 5
-        │            │            │            │
-    aux bus 9    aux bus 10   aux bus 11   aux bus 12
-       ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲
-    sw4   sw5    sw6   sw7    sw8   sw9   sw10  sw11
-     │     │      │     │      │     │      │     │
- ────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
-           │            |            |            |      │
-           |            |            |            |      └───┐
-           |            |            |            |          ／  sw1 (ZIL)
-           |            |            |            |      ┌───┘
-           |            |            |            |      │
-   ────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2'
-
+     gen 2        load 1      branch 1     branch 3     branch 4      branch 5     convdc 1       
+        │            │            │            │            │            │            │        
+    aux bus 7    aux bus 8   aux bus 10   aux bus 12   aux bus 9     aux bus 11   aux bus 13    
+       ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲       
+    sw8   sw9    sw10  sw11  sw12   sw13   sw2    sw3   sw14   sw15   sw4  sw5    sw6   sw7    
+     │     │      │     │      │     │      │     │      │     │      │     │      │     │     
+ ────┴──-──┼──────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
+           │            |            |            |            |            |            |      │
+           |            |            |            |            |            |            |      └───┐
+           |            |            |            |            |            |            |          ／  sw1 (ZIL)
+           |            |            |            |            |            |            |      ┌───┘
+           |            |            |            |            |            |            |      │
+   ──-──-──┴────────────┴────────────┴────────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2' (6)
 
 ```
-
+=#
 # Every element now has its own auxiliary bus and a pair of switches, one to each half. The ZIL busbar coupler `sw1 (ZIL)` decides whether the two halves are one node or two.
 #
 # Three return values, and **two of them are needed again in the feasibility check**:
@@ -349,10 +355,10 @@ data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_spl
 # every approximate/relaxed formulation goes to the free MIP solver `scip`.
 
 # exact MINLP — slow, exact (local optimum)
-@time result_bus_ac = _PMTP.run_acdc_BuS_AC(data_bus, ACPPowerModel, juniper)
+@time result_bus_ac = _PMTP.run_BuS_AC(data_bus, ACPPowerModel, juniper)
 
 # LPAC approximation — far faster, and what you will actually use
-@time result_bus_lpac = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, scip)
+@time result_bus_lpac = _PMTP.run_BuS_AC(data_bus, LPACCPowerModel, scip)
 
 println("AC-BuS MINLP objective: ", result_bus_ac["objective"])
 println("LPAC-BuS objective: ", result_bus_lpac["objective"],
@@ -442,8 +448,6 @@ println("saving LPAC:      ", round(saving_lpac, digits = 2), " %")
 # > optimized topology. This is the single most common way people overstate
 # > topology-optimization results. One can also compare LPAC-BuS vs LPAC-OPF, but that is a comparison of two approximations, not a physical AC reality check.
 
-# Demonstrating the trap explicitly
-result_opf_lpac = _PMACDC.solve_acdcopf(data, LPACCPowerModel, ipopt; setting = s)
 
 println("AC-OPF   (baseline, untouched network): ", result_opf["objective"])
 println("LPAC-OPF (baseline, untouched network): ", result_opf_lpac["objective"], "  ← already lower!")
@@ -458,7 +462,7 @@ println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"], "  �
 bus_try = 3
 
 data_try, sw_try, ext_try = _PMTP.AC_busbars_split(data, bus_try)
-res_try = _PMTP.run_acdc_BuS_AC(data_try, LPACCPowerModel, scip)
+res_try = _PMTP.run_BuS_AC(data_try, LPACCPowerModel, scip)
 
 fc_try = deepcopy(data_try)
 _PMTP.prepare_AC_feasibility_check_AC_busbars(res_try, data_try, fc_try, sw_try, ext_try, data)

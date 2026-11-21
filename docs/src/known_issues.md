@@ -9,7 +9,7 @@ wrong. Knowing about them up front is considerably cheaper than discovering them
 ## Critical
 
 Calling `AC_busbars_split` second wipes the DC couples, and
-`build_acdc_BuS_AC_DC` then iterates an empty `:dcswitch_couples`, so
+`build_BuS_AC_DC` then iterates an empty `:dcswitch_couples`, so
 `constraint_exclusivity_dc_switch`, `constraint_ZIL_dc_switch`, and
 `constraint_BS_OTS_dcbranch` are never posted. The model still solves; the answer is
 meaningless, and typically over-optimistic, because DC elements are free to connect to both

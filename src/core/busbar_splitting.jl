@@ -234,8 +234,10 @@ function AC_busbars_split(data_original,bus_to_be_split)
     switch_couples = compute_couples_of_switches(data) # using the function to check the couples of switches linking each grid element to both parts of the split busbar  
     data["switch_couples"] = Dict{String,Any}()
     data["switch_couples"] = deepcopy(switch_couples)
-    data["dcswitch_couples"] = Dict{String,Any}()
-
+    if haskey(data,"dcswitch_couples")
+    else
+        data["dcswitch_couples"] = Dict{String,Any}()
+    end
     return data, switch_couples, extremes_ZIL
 end
 

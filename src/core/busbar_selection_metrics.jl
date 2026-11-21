@@ -10,7 +10,7 @@ function split_one_bus_per_time(test_case,sw_cost,formulation_BuS,formulation_i,
         results_dict["$b_id"]["AC_FC"] = Dict{String,Any}()
         results_dict["$b_id"]["LPAC_FC"] = Dict{String,Any}()
 
-        results_dict["$b_id"]["BuS"] = run_acdc_BuS_AC(test_case_bs,formulation_BuS,optimizer_BuS)
+        results_dict["$b_id"]["BuS"] = run_BuS_AC(test_case_bs,formulation_BuS,optimizer_BuS)
         test_case_bs_check = deepcopy(test_case_bs)
         test_case_bs_check_auxiliary = deepcopy(test_case_bs)
         if results_dict["$b_id"]["BuS"]["termination_status"] == JuMP.OPTIMAL || results_dict["$b_id"]["BuS"]["termination_status"] == JuMP.LOCALLY_SOLVED

@@ -19,7 +19,7 @@ validates and prices them.
 
 ```julia
 prepare_AC_feasibility_check_AC_busbars(
-    result_dict,      # result from run_acdc_BuS_*
+    result_dict,      # result from run_BuS_*
     input_dict,       # the split network that result came from
     input_ac_check,   # deepcopy of input_dict — MUTATED IN PLACE
     switch_couples,   # from AC_busbars_split
@@ -33,7 +33,7 @@ the DC-side arguments.
 
 ```julia
 data_split, sw_couples, extremes = _PMTP.AC_busbars_split(data, 2)
-result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, gurobi)
+result = _PMTP.run_BuS_AC(data_split, LPACCPowerModel, gurobi)
 
 data_fc = deepcopy(data_split)
 _PMTP.prepare_AC_feasibility_check_AC_busbars(
@@ -95,7 +95,7 @@ Only compare like with like:
 
 ```julia
 opf_ac   = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)   # 194.139
-bus_lpac = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, gurobi)       # 181.909 ← not comparable
+bus_lpac = _PMTP.run_BuS_AC(data_split, LPACCPowerModel, gurobi)       # 181.909 ← not comparable
 
 data_fc = deepcopy(data_split)
 _PMTP.prepare_AC_feasibility_check_AC_busbars(bus_lpac, data_split, data_fc, sw, ext, data)

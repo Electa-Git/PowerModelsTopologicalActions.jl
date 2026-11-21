@@ -1,19 +1,20 @@
-
-# Busbar splitting for DC busbars in hybrid AC/DC grids
-"ACDC opf with controllable switches in DC busbar splitting configuration for AC/DC grids"
-function run_acdc_BuS_DC(file, model_constructor, optimizer; kwargs...)
-    return _PM.solve_model(file, model_constructor, optimizer, build_acdc_BuS_DC; ref_extensions=[add_ref_dcgrid_dcswitch!, _PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!,_PM.ref_add_on_off_va_bounds!], kwargs...)
+# Busbar splitting of AC and DC busbars for AC/DC grid
+"ACDC opf with controllable switches in AC and DC busbar splitting configurations for AC/DC grids"
+function run_BuS_AC_DC(file, model_constructor, optimizer; kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, build_BuS_AC_DC; ref_extensions=[add_ref_dcgrid_dcswitch!, _PMACDC.ref_add_pst!, _PMACDC.ref_add_sssc!, _PMACDC.ref_add_flex_load!, _PMACDC.ref_add_gendc!,_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
 ""
-function build_acdc_BuS_DC(pm::_PM.AbstractPowerModel)
+function build_BuS_AC_DC(pm::_PM.AbstractPowerModel)
     # AC grid
     _PM.variable_bus_voltage(pm)
     _PM.variable_gen_power(pm)
     _PM.variable_branch_power(pm)
     _PM.variable_storage_power(pm)
 
-    # DC grid
+    variable_switch_indicator(pm) # binary variable to indicate the status of an ac switch
+    variable_switch_power(pm) # variable to indicate the power flowing through an ac switch (if closed)
+
     variable_dc_switch_indicator(pm) # binary variable to indicate the status of a dc switch
     variable_dc_switch_power(pm) # variable to indicate the power flowing through a dc switch (if closed)
 
@@ -28,7 +29,7 @@ function build_acdc_BuS_DC(pm::_PM.AbstractPowerModel)
     _PMACDC.variable_sssc(pm)
 
     # Objective function
-    objective_min_fuel_cost_dc_switch(pm)
+    objective_min_fuel_cost_ac_dc_switch(pm)
 
     # Constraints
     _PM.constraint_model_voltage(pm)
@@ -39,13 +40,25 @@ function build_acdc_BuS_DC(pm::_PM.AbstractPowerModel)
     end
 
     for i in _PM.ids(pm, :bus)
-        _PMACDC.constraint_power_balance_ac(pm, i)
+        constraint_power_balance_ac_switch(pm, i) # including the ac switches in the power balance of the AC part of an AC/DC grid
+    end
+
+    for i in _PM.ids(pm, :switch)
+        constraint_switch_thermal_limit(pm, i) # limiting the apparent power flowing through an ac switch
+        constraint_switch_power_on_off(pm,i) # limiting the maximum active and reactive power through an ac switch
+        constraint_switch_voltage_on_off_big_M(pm,i)
+    end
+
+    for i in _PM.ids(pm, :switch_couples)
+        constraint_exclusivity_switch(pm, i) # the sum of the switches in a couple must be lower or equal than one (if OTS is allowed, like here), as each grid element is connected to either part of a split busbar no matter if the ZIL switch is opened or closed
+        constraint_BS_OTS_branch(pm,i) # making sure that if the grid element is not reconnected to the split busbar, the active and reactive power flowing through the switch is 0
+        constraint_ZIL_switch(pm,i)
     end
 
     for i in _PM.ids(pm, :dcswitch)
         constraint_dc_switch_thermal_limit(pm, i) # limiting the apparent power flowing through a dc switch
         constraint_dc_switch_power_on_off(pm,i)  # limiting the maximum active power through a dc switch
-        constraint_dc_switch_voltage_on_off_big_M(pm, i)
+        constraint_dc_switch_voltage_on_off_big_M(pm,i)
     end
 
     for i in _PM.ids(pm, :dcswitch_couples)
@@ -85,7 +98,7 @@ function build_acdc_BuS_DC(pm::_PM.AbstractPowerModel)
     for i in _PM.ids(pm, :busdc)
         constraint_power_balance_dc_switch(pm, i) # taking into account dc switches in the power balance of the dc part of an AC/DC grid
     end
-    
+
     for i in _PM.ids(pm, :branchdc)
         _PMACDC.constraint_ohms_dc_branch(pm, i)
     end
@@ -101,3 +114,7 @@ function build_acdc_BuS_DC(pm::_PM.AbstractPowerModel)
         end
     end
 end
+
+""
+
+

@@ -26,6 +26,7 @@ Juniper = "0.9"
 Literate = "2.21.0"
 Memento = "1.4"
 PowerModels = "0.21"
+PowerModelsACDC = "0.10.2"
 SCIP = "0.11.6"
 julia = "1.10"
 

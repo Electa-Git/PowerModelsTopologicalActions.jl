@@ -40,35 +40,26 @@ result_opf_lpac = _PMACDC.solve_acdcopf(data_5_acdc,LPACCPowerModel,ipopt; setti
 ###### AC Busbar splitting models ######
 # AC BS for AC/DC grid with AC switches state as decision variable. Creating deepcopies of the original dictionary as the grid topology is modified with busbar splitting
 data_busbars_ac_split_5_acdc = deepcopy(data_5_acdc)
-data_busbars_ac_split_5_acdc_dc = deepcopy(data_5_acdc)
-
-data_busbars_ac_split_5_acdc_more_buses = deepcopy(data_5_acdc)
+data_busbars_ac_dc_split_5_acdc = deepcopy(data_5_acdc)
 
 # Selecting which busbars are split
-splitted_bus_ac = [1,2,3,4,5]
+splitted_bus_ac = 2
 splitted_bus_dc = 2
 
 # Preparing data
 data_busbars_ac_split_5_acdc,  switches_couples_ac_5,  extremes_ZILs_5_ac  = _PMTP.AC_busbars_split(data_5_acdc,splitted_bus_ac)
-data_busbars_ac_split_5_acdc_dc,  switches_couples_dc_5,  extremes_ZILs_5_dc  = _PMTP.DC_busbars_split(data_5_acdc,splitted_bus_dc)
-
-data_busbars_ac_split_5_acdc_more_buses,  switches_couples_ac_5_more_buses,  extremes_ZILs_5_ac_more_buses  = _PMTP.AC_busbars_split(data_busbars_ac_split_5_acdc_more_buses,splitted_bus_ac)
-data_busbars_ac_split_5_acdc_more_buses,  switches_couples_dc_5_more_buses,  extremes_ZILs_5_dc_more_buses  = _PMTP.DC_busbars_split(data_busbars_ac_split_5_acdc_more_buses,splitted_bus_dc)
+data_busbars_ac_dc_split_5_acdc,  switches_couples_dc_5,  extremes_ZILs_5_dc  = _PMTP.DC_busbars_split(data_5_acdc,splitted_bus_dc)
 
 
 ## Running grid topology optimization models and feasibility checks
-ac_bs_ac_ref = deepcopy(data_busbars_ac_split_5_acdc)
-ac_bs_dc_ref = deepcopy(data_busbars_ac_split_5_acdc_dc)
-ac_bs_ac_dc_ref = deepcopy(data_busbars_ac_split_5_acdc_more_buses)
+bus_ac = deepcopy(data_busbars_ac_split_5_acdc)
+bus_ac_dc = deepcopy(data_busbars_ac_dc_split_5_acdc)
 
 # Grid topology optimization models
-result_switches_ac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,ACPPowerModel,juniper)
-result_switches_lpac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,LPACCPowerModel,gurobi)
-result_switches_lpac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,LPACCPowerModel,scip)
+result_bus_ac_ac  = _PMTP.run_BuS_AC(bus_ac,ACPPowerModel,juniper)
+result_bus_lpac_ac  = _PMTP.run_BuS_AC(bus_ac,LPACCPowerModel,gurobi)
+result_bus_lpac_ac  = _PMTP.run_BuS_AC(bus_ac,LPACCPowerModel,scip)
 
-
-#result_switches_lpac_dc_ref = _PMTP.run_acdc_BuS_DC(ac_bs_dc_ref,LPACCPowerModel,gurobi)
-#result_switches_lpac_ac_dc_ref  = _PMTP.run_acdc_BuS_AC_DC(ac_bs_ac_dc_ref,LPACCPowerModel,gurobi)
 
 # Feasibility checks
 feasibility_check_AC_BS_opf_fc = deepcopy(data_busbars_ac_split_5_acdc)
@@ -76,13 +67,13 @@ _PMTP.prepare_AC_feasibility_check_AC_busbars(result_switches_lpac_ac_ref,data_b
 result_feasibility_check_ac = _PMACDC.solve_acdcopf(feasibility_check_AC_BS_opf_fc,ACPPowerModel,ipopt; setting = s)
 
 #=
-feasibility_check_DC_BS_opf_fc = deepcopy(data_busbars_ac_split_5_acdc_dc)
-_PMTP.prepare_AC_feasibility_check_DC_busbars(result_switches_lpac_dc_ref,data_busbars_ac_split_5_acdc_dc,feasibility_check_DC_BS_opf_fc,switches_couples_dc_5,extremes_ZILs_5_dc,data_5_acdc)
-result_feasibility_check_dc = _PMACDC.solve_acdcopf(feasibility_check_DC_BS_opf_fc,ACPPowerModel,ipopt; setting = s)
+feasibility_check_ac_bus = deepcopy(bus_ac)
+_PMTP.prepare_AC_feasibility_check_AC_busbars(result_bus_lpac_ac,bus_ac,feasibility_check_ac_bus,switches_couples_ac_5,extremes_ZILs_5_ac,data_5_acdc)
+result_feasibility_check_ac = _PMACDC.solve_acdcopf(feasibility_check_ac_bus,ACPPowerModel,ipopt; setting = s)
 
 feasibility_check_AC_DC_BS_opf_fc = deepcopy(data_busbars_ac_split_5_acdc_more_buses)
 _PMTP.prepare_AC_feasibility_check_AC_busbars(result_switches_lpac_ac_ref,data_busbars_ac_split_5_acdc,feasibility_check_AC_DC_BS_opf_fc,switches_couples_ac_5,extremes_ZILs_5_ac,data_5_acdc)
-_PMTP.prepare_AC_feasibility_check_DC_busbars(result_switches_lpac_dc_ref,data_busbars_ac_split_5_acdc_dc,feasibility_check_AC_DC_BS_opf_fc,switches_couples_dc_5,extremes_ZILs_5_dc,data_5_acdc)
+_PMTP.prepare_AC_feasibility_check_DC_busbars(result_switches_lpac_dc_ref,data_busbars_ac_dc_split_5_acdc,feasibility_check_AC_DC_BS_opf_fc,switches_couples_dc_5,extremes_ZILs_5_dc,data_5_acdc)
 result_feasibility_check_ac_dc = _PMACDC.solve_acdcopf(feasibility_check_AC_DC_BS_opf_fc,ACPPowerModel,ipopt; setting = s)
 =#
 ####################
@@ -93,6 +84,5 @@ _PMACDC.process_additional_data!(test_case_30)
 
 
 results_BuS_one_per_time = _PMTP.split_one_bus_per_time(test_case_30,10.0,LPACCPowerModel,ACPPowerModel,LPACCPowerModel,gurobi,ipopt,ipopt,s)
-
 metrics = _PMTP.compute_metrics_per_bus(test_case_30,ACPPowerModel,ipopt,s)
 

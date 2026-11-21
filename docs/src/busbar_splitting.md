@@ -31,7 +31,7 @@ BuS requires the network to be restructured before it can be optimized. There ar
               ▼
    ┌─────────────────────┐
    │                     │   
-   │    2. OPTIMIZE      │   run_acdc_BuS_AC / _DC / _AC_DC
+   │    2. OPTIMIZE      │   run_BuS_AC / _DC / _AC_DC
    │                     │   → switch states as decision variables
    └──────────┬──────────┘
               │  result
@@ -81,7 +81,7 @@ See [Data model](data_model.md) for the resulting dictionary layout and the mean
 
 All three elements matter, and two of them are needed again in stage 3.
 
-- **`data_split`** — the expanded network. Pass this to the `run_acdc_BuS_*` functions.
+- **`data_split`** — the expanded network. Pass this to the `run_BuS_*` functions.
 - **`switch_couples`** — a dictionary of switch pairs. Each entry has `f_sw` and `t_sw`
   (the two switches connecting one element to the two busbar halves), `bus_split` (which
   original busbar), and `switch_split` (the index of that busbar's coupler). It is also
@@ -105,12 +105,12 @@ Only `AC_busbars_split` and `DC_busbars_split` copy their input. The others muta
 ## Stage 2: optimizing
 
 ```julia
-run_acdc_BuS_AC(data_split, model_constructor, optimizer; kwargs...)
-run_acdc_BuS_DC(data_split, model_constructor, optimizer; kwargs...)
-run_acdc_BuS_AC_DC(data_split, model_constructor, optimizer; kwargs...)
+run_BuS_AC(data_split, model_constructor, optimizer; kwargs...)
+run_BuS_DC(data_split, model_constructor, optimizer; kwargs...)
+run_BuS_AC_DC(data_split, model_constructor, optimizer; kwargs...)
 ```
 
-Choose the function matching the preparation you performed. `run_acdc_BuS_AC_DC` requires a
+Choose the function matching the preparation you performed. `run_BuS_AC_DC` requires a
 network prepared by *both* `AC_busbars_split` and `DC_busbars_split`, applied in that order —
 
 ### The constraint set

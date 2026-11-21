@@ -258,7 +258,7 @@ println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 #              ▼
 #   ┌─────────────────────┐
 #   │                     │   model:
-#   │    2. OPTIMIZE      │   run_acdc_BuS_AC / _DC / _AC_DC
+#   │    2. OPTIMIZE      │   run_BuS_AC / _DC / _AC_DC
 #   │                     │   → switch states as decision binary variables + normal OPF variables
 #   └──────────┬──────────┘
 #              │  result
@@ -351,10 +351,10 @@ data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_spl
 # every approximate/relaxed formulation goes to the free MIP solver `scip`.
 
 ## exact MINLP — slow, exact (local optimum)
-@time result_bus_ac = _PMTP.run_acdc_BuS_AC(data_bus, ACPPowerModel, juniper)
+@time result_bus_ac = _PMTP.run_BuS_AC(data_bus, ACPPowerModel, juniper)
 
 ## LPAC approximation — far faster, and what you will actually use
-@time result_bus_lpac = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, scip)
+@time result_bus_lpac = _PMTP.run_BuS_AC(data_bus, LPACCPowerModel, scip)
 
 println("AC-BuS MINLP objective: ", result_bus_ac["objective"])
 println("LPAC-BuS objective: ", result_bus_lpac["objective"],
@@ -458,7 +458,7 @@ println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"], "  �
 bus_try = 3
 
 data_try, sw_try, ext_try = _PMTP.AC_busbars_split(data, bus_try)
-res_try = _PMTP.run_acdc_BuS_AC(data_try, LPACCPowerModel, scip)
+res_try = _PMTP.run_BuS_AC(data_try, LPACCPowerModel, scip)
 
 fc_try = deepcopy(data_try)
 _PMTP.prepare_AC_feasibility_check_AC_busbars(res_try, data_try, fc_try, sw_try, ext_try, data)
