@@ -60,10 +60,10 @@ Model builder: `build_acdcots_AC_DC`.
 
 ### Busbar splitting
 
-#### `run_acdc_BuS_AC`
+#### `run_BuS_AC`
 
 ```julia
-run_acdc_BuS_AC(data, model_constructor, optimizer; kwargs...)
+run_BuS_AC(data, model_constructor, optimizer; kwargs...)
 ```
 
 Busbar splitting on AC busbars. `data` must be a network prepared by `AC_busbars_split`.
@@ -74,24 +74,24 @@ Busbar splitting on AC busbars. `data` must be a network prepared by `AC_busbars
 
 Results at `result["solution"]["switch"][id]["status"]`.
 
-Model builder: `build_acdc_BuS_AC`. Objective: `objective_min_fuel_cost_ac_switch`.
+Model builder: `build_BuS_AC`. Objective: `objective_min_fuel_cost_ac_switch`.
 
-#### `run_acdc_BuS_DC`
+#### `run_BuS_DC`
 
 ```julia
-run_acdc_BuS_DC(data, model_constructor, optimizer; kwargs...)
+run_BuS_DC(data, model_constructor, optimizer; kwargs...)
 ```
 
 Busbar splitting on DC busbars. Requires a network prepared by `DC_busbars_split`.
 
 Results at `result["solution"]["dcswitch"][id]["status"]`.
 
-Model builder: `build_acdc_BuS_DC`. Objective: `objective_min_fuel_cost_dc_switch`.
+Model builder: `build_BuS_DC`. Objective: `objective_min_fuel_cost_dc_switch`.
 
-#### `run_acdc_BuS_AC_DC`
+#### `run_BuS_AC_DC`
 
 ```julia
-run_acdc_BuS_AC_DC(data, model_constructor, optimizer; kwargs...)
+run_BuS_AC_DC(data, model_constructor, optimizer; kwargs...)
 ```
 
 Simultaneous AC and DC busbar splitting. Requires a network prepared by **both**
@@ -101,7 +101,7 @@ Simultaneous AC and DC busbar splitting. Requires a network prepared by **both**
     Call `AC_busbars_split` **before** `DC_busbars_split`. The reverse order clears
     `data["dcswitch_couples"]`. See [Known issues and gotchas](known_issues.md).
 
-Model builder: `build_acdc_BuS_AC_DC`. Objective: `objective_min_fuel_cost_ac_dc_switch`.
+Model builder: `build_BuS_AC_DC`. Objective: `objective_min_fuel_cost_ac_dc_switch`.
 
 ---
 
@@ -200,7 +200,7 @@ prepare_AC_feasibility_check_DC_busbars_multiconductor(...)
 
 Reconstruct a fixed-topology network from a busbar-splitting result.
 
-- `result_dict` — result from a `run_acdc_BuS_*` call
+- `result_dict` — result from a `run_BuS_*` call
 - `input_dict` — the split network that result came from
 - `input_ac_check` — **mutated in place**; pass a `deepcopy`
 - `switch_couples`, `extremes_dict` — from the corresponding split function

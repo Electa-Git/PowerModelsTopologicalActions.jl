@@ -163,7 +163,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
             data = load_case(CASE5)
             data_split, couples, extremes = _PMTP.AC_busbars_split(data, 2)
 
-            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, GUROBI)
+            result = _PMTP.run_BuS_AC(data_split, LPACCPowerModel, GUROBI)
             data_fc = deepcopy(data_split)
             _PMTP.prepare_AC_feasibility_check_AC_busbars(result, data_split, data_fc, couples, extremes, data)
             result_fc = _PMACDC.solve_acdcopf(data_fc, ACPPowerModel, ipopt; setting = SETTING)
@@ -172,7 +172,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
             @test isapprox(result_fc["objective"], OBJ_BUS_FC; rtol = 1e-2)
 
 
-            result_minlp = _PMTP.run_acdc_BuS_AC(data_split, ACPPowerModel, JUNIPER)
+            result_minlp = _PMTP.run_BuS_AC(data_split, ACPPowerModel, JUNIPER)
             @test isapprox(result_minlp["objective"], OBJ_BUS_AC; rtol = 1e-2)
 
         else
@@ -181,7 +181,7 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
 
             #result = JSON.parsefile(joinpath(dirname(@__DIR__),"tutorials","results","result_LPAC_BuS_AC_busbar_2.json"))
             
-            result = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, SCIP_opt)
+            result = _PMTP.run_BuS_AC(data_split, LPACCPowerModel, SCIP_opt)
             println("Optimal solution obtained through SCIP: ", result["objective"])
             data_fc = deepcopy(data_split)
 

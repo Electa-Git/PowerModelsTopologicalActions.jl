@@ -70,7 +70,7 @@ result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
 # --- busbar splitting: prepare → solve → check ---
 data_split, switch_couples, extremes = _PMTP.AC_busbars_split(data, 2)
 
-result_bus = _PMTP.run_acdc_BuS_AC(data_split, LPACCPowerModel, gurobi)
+result_bus = _PMTP.run_BuS_AC(data_split, LPACCPowerModel, gurobi)
  
 data_fc = deepcopy(data_split)
 _PMTP.prepare_AC_feasibility_check_AC_busbars(result_bus, data_split, data_fc, switch_couples, extremes, data)

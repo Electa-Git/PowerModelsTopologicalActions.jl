@@ -75,10 +75,10 @@ data_multiple_buses, switch_couples_multiple_buses, extremes_ZIL_multiple_buses 
 
 ```julia
 # exact MINLP
-result_bus_ac   = _PMTP.run_acdc_BuS_AC(data_bus, ACPPowerModel,  juniper)
+result_bus_ac   = _PMTP.run_BuS_AC(data_bus, ACPPowerModel,  juniper)
 
 # LPAC approximation — far faster, and what you will use in practice
-result_bus_lpac = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, gurobi)
+result_bus_lpac = _PMTP.run_BuS_AC(data_bus, LPACCPowerModel, gurobi)
 ```
 
 The switching decisions are on the switches:
@@ -153,7 +153,7 @@ best = (bus = nothing, obj = result_opf["objective"])
 for b in keys(data["bus"])
     bus_id = parse(Int, b)
     data_b, sw, ext = _PMTP.AC_busbars_split(data, bus_id)
-    res = _PMTP.run_acdc_BuS_AC(data_b, LPACCPowerModel, gurobi)
+    res = _PMTP.run_BuS_AC(data_b, LPACCPowerModel, gurobi)
 
     data_fc = deepcopy(data_b)
     _PMTP.prepare_AC_feasibility_check_AC_busbars(res, data_b, data_fc, sw, ext, data)

@@ -13,7 +13,7 @@
 #
 # | Step | Section | Mode |
 # |---|---|---|
-# | 0 | Pre-flight — *preparing for the session* | self-service |
+# | 0 | Pre-flight — *preparing for the session* 
 # | 1 | Grid topology optimization: state of play | slides presentation |
 # | 2 | Our topology optimization models | slides presentation |
 # | 3 | Applications of the proposed grid topology optimization models | slides presentation |
@@ -29,8 +29,8 @@
 #
 # Run the next cell. The `PowerModelsTopologicalActions.jl` package is live in the Julia General registry too, so it can be added as the other mature packages.
 
- using Pkg
- Pkg.add(["PowerModels", "PowerModelsACDC", "PowerModelsTopologicalActions" , "JuMP", "Ipopt", "Juniper", "SCIP"])
+using Pkg
+Pkg.add(["PowerModels", "PowerModelsACDC" , "JuMP", "Ipopt", "Juniper", "SCIP", "Plots", "StatsPlots"])
 
 # ### Getting to know the code
 #
@@ -40,22 +40,22 @@
 using PowerModels;                   const _PM     = PowerModels
 using PowerModelsACDC;               const _PMACDC = PowerModelsACDC
 using PowerModelsTopologicalActions; const _PMTP   = PowerModelsTopologicalActions
-using JuMP, Ipopt, Juniper, SCIP #Gurobi
+using JuMP, Ipopt, Juniper, SCIP, Plots, StatsPlots #Gurobi
 
 # we are setting up the base directory
 const PMTA_DIR = dirname(dirname(pathof(PowerModelsTopologicalActions)))
 
 # --- solvers and their pairing ---------------------------
 ipopt   = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-6, "print_level" => 0) # nonlinear solver
-scip    = JuMP.optimizer_with_attributes(SCIP.Optimizer, "display/verblevel" => 0, "limits/gap" => 1e-4) # MIP/MINLP solver (free)
+scip    = JuMP.optimizer_with_attributes(SCIP.Optimizer, "display/verblevel" => 0, "limits/gap" => 1e-4) # MIP solver (free)
 juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
-              "nl_solver" => ipopt, "mip_solver" => scip, "time_limit" => 36000) # MINLP solver
+              "nl_solver" => ipopt, "mip_solver" => scip, "time_limit" => 300) # MINLP solver
 # If you have a Gurobi licence: `using Gurobi` in the block above, define the
 # optimizer here, and swap `scip` → `gurobi` in the calls below.
 # gurobi = JuMP.optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0)
 
 # output settings passed to every AC/DC OPF solve (branch flows + converter losses)
-s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
+s = Dict("output" => Dict("branch_flows" => true, "duals" => true), "conv_losses_mp" => true)
 
 # `process_additional_data!` is needed when one has hybrid AC/DC grids —> it builds the DC-grid structures
 # that every downstream function expects.
@@ -69,6 +69,7 @@ println("# DC buses: ", length(data["busdc"]))
 println("# Converters: ", length(data["convdc"]))
 
 result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
+#result_opf_lpac = _PMACDC.solve_acdcopf(data, LPACCPowerModel, ipopt; setting = s) -> currently there is an error with PMACDC, created a pull request
 
 println("termination: ", result_opf["termination_status"])   ## LOCALLY_SOLVED
 println("primal status: ", result_opf["primal_status"])      ## FEASIBLE_POINT
@@ -95,15 +96,6 @@ println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 # topological actions can be compared to traffic lights on the road coupled to
 # direction signs on the asphalt, which help vehicles to flow smoothly.
 #
-# ```
-#
-#    ┌───────────────────────────────┐
-#    │                               │
-#    │      SLIDES PRESENTATION      │
-#    │                               │
-#    └──────────-────────────────────┘
-#
-# ```
 # ---
 # # 2. Our topology optimization models
 #
@@ -132,16 +124,8 @@ println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 #
 # **Where the benefit comes from.** Splitting the busbar and connecting elements to either part of the split busbar reroutes flows around the binding element
 # inside the substation itself. In the 5-bus example we are about to run, splitting a
-# single AC busbar buys ≈ 4 % of total generation cost.
+# single AC busbar reduces ~4 % of total generation cost.
 #
-# ```
-#    ┌───────────────────────────────┐
-#    │                               │
-#    │      SLIDES PRESENTATION      │
-#    │                               │
-#    └──────────-────────────────────┘
-#
-# ```
 # ---
 # # 2.1 Formulation of the optimization model
 #
@@ -221,17 +205,7 @@ println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 #    case with a genuinely small saving it can swamp the benefit, so one sees no split at all.
 # ---
 # # 3. Applications of the proposed grid topology optimization models
-#   Examples from SEGAN and PSCC papers
-#
-# ```
-#
-#    ┌───────────────────────────────┐
-#    │                               │
-#    │      SLIDES PRESENTATION      │
-#    │                               │
-#    └──────────-────────────────────┘
-#
-# ```
+#   -> Examples from SEGAN, PSCC and ArXiv papers
 # ---
 
 # # 4. Tutorial I — Topology optimization: basics
@@ -248,7 +222,7 @@ println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 #              ▼
 #   ┌─────────────────────┐
 #   │                     │   model:
-#   │    2. OPTIMIZE      │   run_acdc_BuS_AC / _DC / _AC_DC
+#   │    2. OPTIMIZE      │   run_BuS_AC / _DC / _AC_DC
 #   │                     │   → switch states as decision binary variables + normal OPF variables
 #   └──────────┬──────────┘
 #              │  result
@@ -269,42 +243,59 @@ result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
 println("termination: ", result_opf["termination_status"])   ## LOCALLY_SOLVED
 println("objective:   ", result_opf["objective"], " USD/h")  ## 194.139
 
-# Preparation of the busbar splitting data structures. The busbar to split is bus 2
-
+# Preparation of the busbar splitting data structures. The first busbar to split is bus 2
 bus_to_split = 2
 
 data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_split)
 
-# **Before:**
+# Printing information about the switches and their connection to the auxiliary buses and the split busbars
+for (sw_id,sw) in data_bus["switch"]
+       if haskey(sw,"auxiliary")
+       println("Switch $sw_id, is connected to auxiliary bus $(sw["f_bus"]), split bus $(sw["bus_split"]), original element $(sw["auxiliary"]) $((sw["original"])) from bus $(sw["f_bus"]), to bus $(sw["t_bus"])")
+       else
+       println("Switch $sw_id, is the busbar coupler (ZIL) between bus $(sw["f_bus"]) and bus $(sw["t_bus"])")
+       end
+end
 
+# Printing the same information following the sw_id order
+for sw_id in 1:length(data_bus["switch"])
+    sw = data_bus["switch"]["$sw_id"]
+       if haskey(sw,"auxiliary")
+       println("Switch $sw_id, is connected to auxiliary bus $(sw["f_bus"]), split bus $(sw["bus_split"]), original element $(sw["auxiliary"]) $((sw["original"])) from bus $(sw["f_bus"]), to bus $(sw["t_bus"])")
+       else
+       println("Switch $sw_id, is the busbar coupler (ZIL) between bus $(sw["f_bus"]) and bus $(sw["t_bus"])")
+       end
+end
+
+# **Before:**
+#=
 ```
-        gen 1     load 1
-           │         │
-    ───────┴────┬────┴──┬────      busbar 2
-                │       │
-          branch 3   branch 5
+        gen 2     load 1      convdc 1                    
+           │         │            │                  
+    ───────┴────┬────┴──┬─────────┴──┬───────┬────      busbar 2
+                │       │            │       │
+          branch 1   branch 3    branch 4   branch 5
 ```
 
 # **After `AC_busbars_split(data, bus_to_split)`:**
 
 ```
-     gen 1        load 1      branch 3     branch 5
-        │            │            │            │
-    aux bus 9    aux bus 10   aux bus 11   aux bus 12
-       ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲
-    sw4   sw5    sw6   sw7    sw8   sw9   sw10  sw11
-     │     │      │     │      │     │      │     │
- ────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
-           │            |            |            |      │
-           |            |            |            |      └───┐
-           |            |            |            |          ／  sw1 (ZIL)
-           |            |            |            |      ┌───┘
-           |            |            |            |      │
-   ────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2'
-
+     gen 2        load 1      branch 1     branch 3     branch 4      branch 5     convdc 1       
+        │            │            │            │            │            │            │        
+    aux bus 7    aux bus 8   aux bus 10   aux bus 12   aux bus 9     aux bus 11   aux bus 13    
+       ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲          ╱ ╲       
+    sw8   sw9    sw10  sw11  sw12   sw13   sw2    sw3   sw14   sw15   sw4  sw5    sw6   sw7    
+     │     │      │     │      │     │      │     │      │     │      │     │      │     │     
+ ────┴──-──┼──────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼──────┴─────┼────────      busbar 2
+           │            |            |            |            |            |            |      │
+           |            |            |            |            |            |            |      └───┐
+           |            |            |            |            |            |            |          ／  sw1 (ZIL)
+           |            |            |            |            |            |            |      ┌───┘
+           |            |            |            |            |            |            |      │
+   ──-──-──┴────────────┴────────────┴────────────┴────────────┴────────────┴────────────┴──────┴─      busbar 2' (6)
 
 ```
-
+=#
 # Every element now has its own auxiliary bus and a pair of switches, one to each half. The ZIL busbar coupler `sw1 (ZIL)` decides whether the two halves are one node or two.
 #
 # Three return values, and **two of them are needed again in the feasibility check**:
@@ -315,7 +306,7 @@ data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_spl
 #   element lands →  one can check all the couples of switches for each network element.
 # - `extremes_ZIL` — maps each split busbar to the indices of its two halves, thus the extremes of each busbar coupler
 #
-# ## 4.1 Inspect the data structure:
+# ## 4.2 Inspect the data structure:
 # ### The original busbar and its second half:
 
 @show data_bus["bus"]["2"]["split"]          ## true  — nominated for splitting
@@ -337,7 +328,7 @@ data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_spl
 # To split several busbars at once, pass a vector, e.g.
 # `_PMTP.AC_busbars_split(data, [1, 2, 3, 4, 5])`.
 #
-# ## 4.2 Optimize
+# ## 4.3 Optimize
 #
 # > **The discriminator used throughout the source** is the presence or absence of the
 # > `"auxiliary"` key: **couplers lack it, element switches have it.**
@@ -349,17 +340,17 @@ data_bus, switch_couples, extremes_ZIL = _PMTP.AC_busbars_split(data, bus_to_spl
 # every approximate/relaxed formulation goes to the free MIP solver `scip`.
 
 # exact MINLP — slow, exact (local optimum)
-@time result_bus_ac = _PMTP.run_acdc_BuS_AC(data_bus, ACPPowerModel, juniper)
+@time result_bus_ac = _PMTP.run_BuS_AC(data_bus, ACPPowerModel, juniper)
 
 # LPAC approximation — far faster, and what you will actually use
-@time result_bus_lpac = _PMTP.run_acdc_BuS_AC(data_bus, LPACCPowerModel, scip)
+@time result_bus_lpac = _PMTP.run_BuS_AC(data_bus, LPACCPowerModel, scip)
 
 println("AC-BuS MINLP objective: ", result_bus_ac["objective"])
 println("LPAC-BuS objective: ", result_bus_lpac["objective"],
         "  ← not comparable to the AC baseline!")
 
 # ### Reading the answer
-
+# LPAC-BuS 
 for sw_id in 1:length(data_bus["switch"])
     sw         = result_bus_lpac["solution"]["switch"]["$sw_id"]
     is_coupler = !haskey(data_bus["switch"]["$sw_id"], "auxiliary")
@@ -369,12 +360,28 @@ for sw_id in 1:length(data_bus["switch"])
         println("switch $sw_id — BUSBAR COUPLER: $status")
     else
         elem = data_bus["switch"]["$sw_id"]
-        side = elem["t_bus"] == extremes_ZIL["$bus_to_split"][1] ? "original half" : "second half"
+        side = elem["t_bus"] == extremes_ZIL["$bus_to_split"][1] ? "Bus 2" : "Bus 2' (6)"
         status == "closed" && println("switch $sw_id — $(elem["auxiliary"]) $(elem["original"]) → $side")
     end
 end
 
-# > **The interpretationL** A busbar was actually split **if and only
+# AC-BuS
+for sw_id in 1:length(data_bus["switch"])
+    sw         = result_bus_ac["solution"]["switch"]["$sw_id"]
+    is_coupler = !haskey(data_bus["switch"]["$sw_id"], "auxiliary")
+    status     = sw["status"] < 0.01 ? "OPEN" : "closed"
+
+    if is_coupler
+        println("switch $sw_id — BUSBAR COUPLER: $status")
+    else
+        elem = data_bus["switch"]["$sw_id"]
+        side = elem["t_bus"] == extremes_ZIL["$bus_to_split"][1] ? "Bus 2" : "Bus 2' (6)"
+        status == "closed" && println("switch $sw_id — $(elem["auxiliary"]) $(elem["original"]) → $side")
+    end
+end
+
+
+# > **The interpretation** A busbar was actually split **if and only
 # > if its coupler is open**, and at least one network element is connected to each part of the split busbar. An element switch being open only tells you which side that
 # > element chose — or, if *both* switches of a couple are open, that the element was
 # > dropped from the network entirely.
@@ -421,12 +428,45 @@ println("after BuS LPAC (MIQCP):   ", result_fc["objective"],  " USD/h")
 println("saving AC:      ", round(saving_ac, digits = 2), " %")
 println("saving LPAC:      ", round(saving_lpac, digits = 2), " %")
 
+function plot_branch_flows_comparison(data, result_before, result_after;
+        labels = ["Before splitting", "After splitting"],
+        title = "Active power flow per branch",
+        kwargs...)
+    for (name, result) in (("result_before", result_before), ("result_after", result_after))
+        if !haskey(result["solution"], "branch") || !haskey(first(values(result["solution"]["branch"])), "pf")
+            Memento.error(_LOGGER, "$name has no branch flows: solve it with setting = Dict(\"output\" => Dict(\"branch_flows\" => true))")
+        end
+    end
+
+    base_mva = data["baseMVA"]
+    branch_ids = sort(parse.(Int, collect(keys(data["branch"]))))
+    branch_names = ["$(id): $(data["branch"]["$id"]["f_bus"])→$(data["branch"]["$id"]["t_bus"])" for id in branch_ids]
+
+    flow(result, id) = haskey(result["solution"]["branch"], "$id") ? result["solution"]["branch"]["$id"]["pf"] * base_mva : NaN
+    flows = hcat([flow(result_before, id) for id in branch_ids],
+                 [flow(result_after,  id) for id in branch_ids])
+    lo, hi = extrema(filter(!isnan, flows))
+    pad = 0.1 * max(hi - lo, 1.0)
+
+    return StatsPlots.groupedbar(branch_names, flows;
+        label = permutedims(labels),
+        color = ["#2a78d6" "#eb6834"],
+        linecolor = :white, linewidth = 1, bar_width = 0.7,
+        title = title, xlabel = "Branch (id: from→to bus)", ylabel = "Active power flow from→to bus [MW]",
+        legend = :outertop, legend_column = -1, foreground_color_legend = nothing,
+        grid = :y, gridalpha = 0.2, framestyle = :zerolines,
+        ylims = (min(lo, 0.0) - pad, max(hi, 0.0) + pad),
+        xrotation = length(branch_ids) > 10 ? 90 : 0,
+        kwargs...)
+end
+plot_branch_flows_comparison(data, result_opf, result_fc)
+
 # ### Interpreting the outcome
 #
 # | Outcome | Meaning |
 # |---|---|
 # | Converged, objective **below** baseline | AC-feasible and beneficial. Use it. |
-# | Converged, objective **above** baseline | AC-feasible but useless — the apparent saving was formulation error. |
+# | Converged, objective **above** baseline | AC-feasible but useless — the apparent saving was due to the different formulation . |
 # | Infeasible | Not physically realizable. Discard it. |
 #
 #
@@ -439,43 +479,73 @@ println("saving LPAC:      ", round(saving_lpac, digits = 2), " %")
 # > That is **not** a 6.3 % saving. The LPAC-*OPF* of the same untouched network already
 # > reports **183.924 USD/h**, so most of that gap is *formulation difference*, not topology
 # > benefit. Only ever compare like with like: AC-OPF baseline vs AC-OPF on the
-# > optimized topology. This is the single most common way people overstate
-# > topology-optimization results. One can also compare LPAC-BuS vs LPAC-OPF, but that is a comparison of two approximations, not a physical AC reality check.
-
-# Demonstrating the trap explicitly
-result_opf_lpac = _PMACDC.solve_acdcopf(data, LPACCPowerModel, ipopt; setting = s)
+# > optimized topology. This is the single most common way one could overstate
+# > topology-optimization results. One can also compare LPAC-BuS vs LPAC-OPF, but that is a comparison of two approximations, not a physical AC reality check. (still betther than a DC approximation, though)
 
 println("AC-OPF   (baseline, untouched network): ", result_opf["objective"])
-println("LPAC-OPF (baseline, untouched network): ", result_opf_lpac["objective"], "  ← already lower!")
+println("LPAC-OPF (baseline, untouched network): ", result_opf_lpac["objective"])
 println("LPAC-BuS (optimized topology):          ", result_bus_lpac["objective"])
-println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"], "  ← the only honest comparison")
+println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"])
 
-# ## 4.5 Exercise
+# ## 4.5 Exercise with all busbars potentially being split
 #
-# > Split busbar **3** instead of 2. Does the coupler open? Is the resulting topology
+# > Split all busbars **[1, 2, 3, 4, 5]** instead of 2. Do all the couplers open? Is the resulting topology
 # > AC-feasible, and is it better or worse than splitting busbar 2?
 
-bus_try = 3
+all_buses = [1, xx]
 
-data_try, sw_try, ext_try = _PMTP.AC_busbars_split(data, bus_try)
-res_try = _PMTP.run_acdc_BuS_AC(data_try, LPACCPowerModel, scip)
+data_all_buses, sw_all_buses, ext_all_buses = _PMTP.AC_busbars_split(data, all_buses)
+res_all_buses_lpac = _PMTP.run_BuS_AC(data_all_buses, LPACCPowerModel, scip)
+res_all_buses_ac = _PMTP.run_BuS_AC(data_all_buses, ACPPowerModel, juniper)
 
-fc_try = deepcopy(data_try)
-_PMTP.prepare_AC_feasibility_check_AC_busbars(res_try, data_try, fc_try, sw_try, ext_try, data)
-result_try = _PMACDC.solve_acdcopf(fc_try, ACPPowerModel, ipopt; setting = s)
+fc_all_buses = deepcopy(data_all_buses)
+_PMTP.prepare_AC_feasibility_check_AC_busbars(res_all_buses_lpac, data_all_buses, fc_all_buses, sw_all_buses, ext_all_buses, data)
+result_all_buses_fc = _PMACDC.solve_acdcopf(fc_all_buses, ACPPowerModel, ipopt; setting = s)
+saving_ac_all_buses = 100 * (result_opf["objective"] - res_all_buses_ac["objective"]) / result_opf["objective"]
+saving_lpac_all_buses = 100 * (result_opf["objective"] - result_all_buses_fc["objective"]) / result_opf["objective"]
 
-println("coupler status: ", res_try["solution"]["switch"]["1"]["status"])
-println("objective:      ", result_try["objective"], " vs baseline ", result_opf["objective"])
+#plot_branch_flows_comparison(data, result_opf, result_all_buses_fc)
+
+#busbar_couplers = [sw_id for (sw_id, sw) in data_all_buses["switch"] if !haskey(sw, "auxiliary")]
+#println("coupler status: ", ["Busbar coupler $bc for bus $(data_all_buses["switch"]["$bc"]["bus_split"]): " * string(res_all_buses["solution"]["switch"]["$bc"]["status"]) for bc in busbar_couplers])
+
+println("termination feasibility check: ", result_all_buses_fc["termination_status"])
+println("---")
+println("baseline AC OPF:    ", result_opf["objective"], " USD/h")
+println("after BuS AC (MINLP):   ", res_all_buses_ac["objective"],  " USD/h")
+println("after BuS LPAC (MIQCP):   ", res_all_buses_lpac["objective"],  " USD/h")
+println("Feasibility check LPAC:   ", result_all_buses_fc["objective"],  " USD/h")
+println("saving AC:      ", round(saving_ac_all_buses, digits = 2), " %")
+println("saving LPAC:      ", round(saving_lpac_all_buses, digits = 2), " %")
+
+# -> how is the new topology compared to the one obtained by splitting busbar 2 only? What changed?
+# -> compare the power flows and the voltage angles/magnitudes between the two cases and describe what changed
+
+
+# ---
 
 # ---
 # # 5. Tutorial II — Identifying relevant areas for topology optimization
-# To be completed
-#
+new_test_case = joinpath(PMTA_DIR, "test", "data_sources", "pglib_opf_case30_ieee.m")
+new_data = _PM.parse_file(new_test_case)
+_PMACDC.process_additional_data!(new_data)
+metrics = _PMTP.compute_metrics_per_bus(new_data, ACPPowerModel, ipopt, s)
+
+# The metrics can be checked in the paper: # - **Candidate selection.** "Identifying Best Candidates for Busbar Splitting," *EPSR*
+#   263 (2027). [doi:10.1016/j.epsr.2026.113611](https://doi.org/10.1016/j.epsr.2026.113611)
+
+
+# ## Part I identify the busbars leading to highest generation cost if split
+# 1. select the busbars throught the metrics, optimize the topology for every busbar, plot it in a color
+# 2. split every busbar, one at a time
+# 3. compare the selected metrics with splitting every busbar, one at a time, and plot the results in a different color
+
+# ## Part II -> try a new test case, e.g. the IEEE case 118
+
+# ## Part III -> evaluate whether combinations of busbars lead to higher generation cost reductions compared to a single busbar
+
 # ---
-# # 6. Next steps
-#
-# ---
-# # 7. Limitations, roadmap, Q&A *(5 min)*
+# # 6. Limitations, roadmap, Q&A *(5 min)*
 #
 # - **Double-busbar configurations only.** Breaker-and-a-half and double-bus-double-breaker
 #   are not modelled.
@@ -496,18 +566,6 @@ println("objective:      ", result_try["objective"], " vs baseline ", result_opf
 #
 # ---
 # # Appendix — Bundled test cases and further reading
-#
-# Test networks live in `test/data_sources/`.
-#
-# | File | Description |
-# |---|---|
-# | `case5_acdc.m` | 5 AC buses, 3 DC buses, 3 converters — the worked example |
-# | `case39_acdc.m` | 39 AC buses, 10 DC buses, 10 converters |
-# | `case67.m` | 67 AC buses, 9 DC buses, 9 converters |
-# | `pglib_opf_case588_sdet_acdc.m` | 588 AC buses, 7 DC buses |
-# | `case3120sp_mcdc.m` | 3120 AC buses, 5 DC buses |
-# | `cigre_b4_dc_grid.m` | CIGRE B4 DC grid |
-# | AC-only | `case5.m`, `case14.m`, `case24.m`, `case30_ieee.m`, `case57_ieee.m`, `case118_ieee.m`, `case793_goc.m`, `case3375wp_k.m` |
 #
 # **Further reading**
 #

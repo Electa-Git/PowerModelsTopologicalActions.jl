@@ -14,6 +14,7 @@ const _IM = InfrastructureModels
 
 import JuMP
 
+import StatsPlots
 #import Plots
 #import PlotlyJS
 # Create our module level logger (this will get precompiled)
@@ -34,13 +35,14 @@ include("core/base.jl")
 include("core/objective.jl")
 include("core/relaxation_scheme.jl")
 include("core/feasibility_check.jl")
+include("core/plotting.jl")
 
 include("prob/acdcots_AC.jl")
 include("prob/acdcots_DC.jl")
 include("prob/acdcots_AC_DC.jl")
-include("prob/acdc_BuS_AC.jl")
-include("prob/acdc_BuS_DC.jl")
-include("prob/acdc_BuS_AC_DC.jl")
+include("prob/BuS_AC.jl")
+include("prob/BuS_DC.jl")
+include("prob/BuS_AC_DC.jl")
 
 include("formconv/acp.jl")
 include("formconv/wr.jl")

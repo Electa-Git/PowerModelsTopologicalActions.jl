@@ -62,11 +62,11 @@ ac_bs_dc_ref = deepcopy(data_busbars_ac_split_5_acdc_dc)
 ac_bs_ac_dc_ref = deepcopy(data_busbars_ac_split_5_acdc_more_buses)
 
 # Grid topology optimization models
-result_switches_ac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,ACPPowerModel,juniper)
-result_switches_lpac_ac_ref  = _PMTP.run_acdc_BuS_AC(ac_bs_ac_ref,LPACCPowerModel,gurobi)
+result_switches_ac_ac_ref  = _PMTP.run_BuS_AC(ac_bs_ac_ref,ACPPowerModel,juniper)
+result_switches_lpac_ac_ref  = _PMTP.run_BuS_AC(ac_bs_ac_ref,LPACCPowerModel,gurobi)
 
-result_switches_lpac_dc_ref = _PMTP.run_acdc_BuS_DC(ac_bs_dc_ref,LPACCPowerModel,gurobi)
-result_switches_lpac_ac_dc_ref  = _PMTP.run_acdc_BuS_AC_DC(ac_bs_ac_dc_ref,LPACCPowerModel,gurobi)
+result_switches_lpac_dc_ref = _PMTP.run_BuS_DC(ac_bs_dc_ref,LPACCPowerModel,gurobi)
+result_switches_lpac_ac_dc_ref  = _PMTP.run_BuS_AC_DC(ac_bs_ac_dc_ref,LPACCPowerModel,gurobi)
 
 open(joinpath(@__DIR__,"results","result_AC_BuS_AC_busbar_2.json"), "w") do file
     JSON.print(file, result_switches_ac_ac_ref)

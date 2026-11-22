@@ -93,9 +93,9 @@ Same practical caveat as SOC: on the tested cases it leaves the topology unchang
 | `run_acdcots_AC` | ✅ | — | — | — | — |
 | `run_acdcots_DC` | ✅ | — | — | — | — |
 | `run_acdcots_AC_DC` | ✅ | — | — | — | — |
-| `run_acdc_BuS_AC` | ✅ | ✅ | ✅ | ✅ | ~ |
-| `run_acdc_BuS_DC` | ✅ | ✅ | ✅ | ✅ | ~ |
-| `run_acdc_BuS_AC_DC` | ✅ | ✅ | ✅ | ✅ | ~ |
+| `run_BuS_AC` | ✅ | ✅ | ✅ | ✅ | ~ |
+| `run_BuS_DC` | ✅ | ✅ | ✅ | ✅ | ~ |
+| `run_BuS_AC_DC` | ✅ | ✅ | ✅ | ✅ | ~ |
 
 `~` = code exists, not validated. OTS is implemented only for the exact formulation; the
 same relaxation approach would apply, but it has not been done here.
