@@ -58,7 +58,7 @@ println("# DC buses: ", length(data["busdc"]))
 println("# Converters: ", length(data["convdc"]))
 
 result_opf = _PMACDC.solve_acdcopf(data, ACPPowerModel, ipopt; setting = s)
-#result_opf_lpac = _PMACDC.solve_acdcopf(data, LPACCPowerModel, ipopt; setting = s) -> currently there is an error with PMACDC, created a pull request
+#result_opf_lpac = _PMACDC.solve_acdcopf(data, LPACCPowerModel, ipopt; setting = s) #-> currently there is an error with PMACDC, created a pull request
 
 println("termination: ", result_opf["termination_status"])   ## LOCALLY_SOLVED
 println("primal status: ", result_opf["primal_status"])      ## FEASIBLE_POINT
@@ -472,7 +472,7 @@ plot_branch_flows_comparison(data, result_opf, result_fc)
 # > topology-optimization results. One can also compare LPAC-BuS vs LPAC-OPF, but that is a comparison of two approximations, not a physical AC reality check. (still betther than a DC approximation, though)
 
 println("AC-OPF   (baseline, untouched network): ", result_opf["objective"])
-println("LPAC-OPF (baseline, untouched network): ", result_opf_lpac["objective"])
+#println("LPAC-OPF (baseline, untouched network): ", result_opf_lpac["objective"])
 println("LPAC-BuS (optimized topology):          ", result_bus_lpac["objective"])
 println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"])
 
@@ -481,7 +481,7 @@ println("AC-OPF   (optimized topology, via FC):  ", result_fc["objective"])
 # > Split all busbars **[1, 2, 3, 4, 5]** instead of 2. Do all the couplers open? Is the resulting topology
 # > AC-feasible, and is it better or worse than splitting busbar 2?
 
-all_buses = [1, xx]
+all_buses = [1, 2, 3, 4, 5]
 
 data_all_buses, sw_all_buses, ext_all_buses = _PMTP.AC_busbars_split(data, all_buses)
 res_all_buses_lpac = _PMTP.run_BuS_AC(data_all_buses, LPACCPowerModel, scip)
@@ -493,7 +493,7 @@ result_all_buses_fc = _PMACDC.solve_acdcopf(fc_all_buses, ACPPowerModel, ipopt; 
 saving_ac_all_buses = 100 * (result_opf["objective"] - res_all_buses_ac["objective"]) / result_opf["objective"]
 saving_lpac_all_buses = 100 * (result_opf["objective"] - result_all_buses_fc["objective"]) / result_opf["objective"]
 
-#plot_branch_flows_comparison(data, result_opf, result_all_buses_fc)
+plot_branch_flows_comparison(data, result_opf, result_all_buses_fc)
 
 #busbar_couplers = [sw_id for (sw_id, sw) in data_all_buses["switch"] if !haskey(sw, "auxiliary")]
 #println("coupler status: ", ["Busbar coupler $bc for bus $(data_all_buses["switch"]["$bc"]["bus_split"]): " * string(res_all_buses["solution"]["switch"]["$bc"]["status"]) for bc in busbar_couplers])

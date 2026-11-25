@@ -4,9 +4,8 @@ Function-by-function listing of the public surface. The package carries almost n
 docstrings, so this page is maintained by hand; signatures below were read directly from the
 source.
 
-Names marked **(exported)** can be called unqualified after `using
-PowerModelsTopologicalActions`. Everything else needs the `PowerModelsTopologicalActions.`
-prefix (or an alias such as `_PMTP.`).
+The module does not export any names, so every function needs the
+`PowerModelsTopologicalActions.` prefix (or an alias such as `_PMTP.`).
 
 ---
 
@@ -14,7 +13,7 @@ prefix (or an alias such as `_PMTP.`).
 
 ### Optimal transmission switching
 
-#### `run_acdcots_AC` **(exported)**
+#### `run_acdcots_AC`
 
 ```julia
 run_acdcots_AC(file::String, model_type::Type, solver; kwargs...)
@@ -33,7 +32,7 @@ Returns a PowerModels result dictionary. Switching states appear at
 
 Model builder: `build_acdcots_AC`.
 
-#### `run_acdcots_DC` **(exported)**
+#### `run_acdcots_DC`
 
 ```julia
 run_acdcots_DC(file::String, model_type::Type, solver; kwargs...)
@@ -47,7 +46,7 @@ Results at `result["solution"]["branchdc"][id]["br_status"]` and
 
 Model builder: `build_acdcots_DC`.
 
-#### `run_acdcots_AC_DC` **(exported)**
+#### `run_acdcots_AC_DC`
 
 ```julia
 run_acdcots_AC_DC(file::String, model_type::Type, solver; kwargs...)
@@ -59,6 +58,18 @@ Joint AC and DC OTS. All of the above are switchable simultaneously.
 Model builder: `build_acdcots_AC_DC`.
 
 ### Busbar splitting
+
+!!! note "Renamed after v0.1.0"
+    The busbar-splitting problem specifications lost their `acdc_` prefix after the
+    registered v0.1.0. On v0.1.0, use the old names:
+
+    | v0.1.0 | current |
+    |---|---|
+    | `run_acdc_BuS_AC`, `build_acdc_BuS_AC` | `run_BuS_AC`, `build_BuS_AC` |
+    | `run_acdc_BuS_DC`, `build_acdc_BuS_DC` | `run_BuS_DC`, `build_BuS_DC` |
+    | `run_acdc_BuS_AC_DC`, `build_acdc_BuS_AC_DC` | `run_BuS_AC_DC`, `build_BuS_AC_DC` |
+
+    The source files moved accordingly, from `src/prob/acdc_BuS_*.jl` to `src/prob/BuS_*.jl`.
 
 #### `run_BuS_AC`
 
@@ -97,9 +108,10 @@ run_BuS_AC_DC(data, model_constructor, optimizer; kwargs...)
 Simultaneous AC and DC busbar splitting. Requires a network prepared by **both**
 `AC_busbars_split` and `DC_busbars_split`.
 
-!!! note "Call order matters"
-    Call `AC_busbars_split` **before** `DC_busbars_split`. The reverse order clears
-    `data["dcswitch_couples"]`. See [Known issues and gotchas](known_issues.md).
+`AC_busbars_split` and `DC_busbars_split` can be applied in either order: each one only
+creates the other side's couple dictionary if it is missing. This does not hold for the
+`_ordered` and multiconductor split variants, which still reset the other side's couples —
+see [Known issues and gotchas](known_issues.md).
 
 Model builder: `build_BuS_AC_DC`. Objective: `objective_min_fuel_cost_ac_dc_switch`.
 
@@ -120,8 +132,9 @@ Prepares a hybrid AC/DC network for AC busbar splitting. `bus_to_be_split` is an
 Returns the expanded network, the switch-couple dictionary, and a map from each split busbar
 to the indices of its two halves. See [Data model](data_model.md).
 
-Requires `data["switch"]` to exist and to be empty. Resets `data["dcswitch_couples"]` to an
-empty dictionary, so call this before `DC_busbars_split`, not after.
+Requires `data["switch"]` to exist and to be empty. Creates an empty
+`data["dcswitch_couples"]` only if the key is absent, so couples from an earlier
+`DC_busbars_split` are preserved.
 
 ### `DC_busbars_split`
 
@@ -209,6 +222,73 @@ Reconstruct a fixed-topology network from a busbar-splitting result.
 Returns nothing meaningful; the output is the mutated third argument. Then solve
 `PowerModelsACDC.solve_acdcopf` on it. Verbose by design. See
 [AC feasibility check](feasibility_check.md).
+
+---
+
+## Busbar candidate screening
+
+Source: `src/core/busbar_selection_metrics.jl`. AC busbars only.
+
+### `compute_metrics_per_bus`
+
+```julia
+compute_metrics_per_bus(data, formulation, optimizer, settings) → Dict
+```
+
+Solves one AC/DC OPF (`PowerModelsACDC.solve_acdcopf`) on `data` and returns, per bus id:
+`lam_kcl_r` (absolute active-power balance dual), `diff` (sum of absolute nodal-price
+differences across the connected AC branches), `n_branches`, and `connected_branches`, which
+maps each connected branch id to its `utilization` (`abs(pf) / rate_a`), `va_fr`, `va_to`
+and `va_fr_minus_va_to`.
+
+`settings` must request duals and branch flows, e.g.
+`Dict("output" => Dict("branch_flows" => true, "duals" => true), "conv_losses_mp" => true)`;
+otherwise the function fails with a `KeyError`. Metrics from the paper
+[doi:10.1016/j.epsr.2026.113611](https://doi.org/10.1016/j.epsr.2026.113611).
+
+### `split_one_bus_per_time`
+
+```julia
+split_one_bus_per_time(data, sw_cost,
+                       formulation_BuS, formulation_i, formulation_ii,
+                       optimizer_BuS,   optimizer_i,   optimizer_ii,
+                       settings) → Dict
+```
+
+For every AC bus in `data`: `AC_busbars_split` on that bus, sets the coupler cost
+(`switch["1"]["cost"]`) to `sw_cost`, solves `run_BuS_AC` with `formulation_BuS` /
+`optimizer_BuS`, and — if the termination status is `OPTIMAL` or `LOCALLY_SOLVED` — runs
+`prepare_AC_feasibility_check_AC_busbars` followed by two `solve_acdcopf` calls on the fixed
+topology, with (`formulation_i`, `optimizer_i`) and (`formulation_ii`, `optimizer_ii`).
+
+Returns `result[bus_id]["BuS"]`, `["AC_FC"]` and `["LPAC_FC"]`; the last two stay empty
+when the BuS model did not solve. `settings` is passed to the feasibility-check OPFs only.
+Does not mutate `data`.
+
+---
+
+## Plotting
+
+Source: `src/core/plotting.jl`. Built on StatsPlots.jl.
+
+### `plot_branch_flows_comparison`
+
+```julia
+plot_branch_flows_comparison(data, result_before, result_after;
+                             labels = ["Before splitting", "After splitting"],
+                             title  = "Active power flow per branch",
+                             kwargs...) → Plots.Plot
+```
+
+Grouped bar chart of the active power flow (MW, `f_bus` side) through each AC branch in two
+results, matched by branch id. `data` is the original, unsplit network, which provides the
+branch list and `baseMVA`. Branches missing from a result are drawn as gaps. Extra keywords
+are forwarded to `StatsPlots.groupedbar`; the x-labels rotate automatically above ten
+branches.
+
+Both results must have been solved with
+`setting = Dict("output" => Dict("branch_flows" => true))`, otherwise a Memento error is
+raised naming the offending argument.
 
 ---
 

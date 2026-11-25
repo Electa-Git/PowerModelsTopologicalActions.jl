@@ -20,10 +20,17 @@ s = Dict("output" => Dict("branch_flows" => true), "conv_losses_mp" => true)
 
 # Parse and augment the network. `process_additional_data!` is required — it adds the
 # DC-grid structures that everything downstream expects.
-file = joinpath(dirname(dirname(@__DIR__)),"test","data_sources", "case5_acdc.m")
+const PMTA_DIR = dirname(dirname(pathof(PowerModelsTopologicalActions)))
+file = joinpath(PMTA_DIR, "test", "data_sources", "case5_acdc.m")
 data = _PM.parse_file(file)
 _PMACDC.process_additional_data!(data)
 ```
+
+!!! tip "No Gurobi licence?"
+    Use SCIP instead, both directly and as Juniper's MIP solver — see
+    [A free solver stack](installation.md#A-free-solver-stack). Replace `gurobi` with `scip`
+    in every call below. The test suite checks the 5-bus results with SCIP as well; solve
+    times are longer.
 
 ## Baseline
 
@@ -139,6 +146,30 @@ realizable and must be discarded. This is the whole point of the check, in my ex
     Always pass a `deepcopy`. The function is also verbose by design for now — it prints every
     reconnection it makes, which is genuinely useful when a check fails unexpectedly.
 
+### Visualizing the effect on the power flows
+
+`plot_branch_flows_comparison` draws a grouped bar chart of the active power flow on every
+AC branch before and after the topology change:
+
+```julia
+using StatsPlots   # or Plots — needed to display the figure
+
+_PMTP.plot_branch_flows_comparison(data, result_opf, result_fc)
+```
+
+- The first argument is the **original, unsplit** network. Branch ids are preserved by
+  `AC_busbars_split` and by the feasibility check, so the two results are matched by id.
+- Flows are taken at the `f_bus` side and shown in MW; a sign change means the flow reversed.
+- Both results must contain branch flows, i.e. be solved with
+  `setting = Dict("output" => Dict("branch_flows" => true), ...)`. Otherwise the function
+  raises an error telling you so.
+- `labels` and `title` customize the legend and title; any other keyword is forwarded to
+  `StatsPlots.groupedbar`. The return value is a regular Plots.jl figure, so
+  `savefig(p, "flows.png")` works as usual.
+
+Compare `result_opf` with `result_fc` (both AC-OPF), not with the raw LPAC-BuS result,
+for the same reason as in the objective comparison above.
+
 
 
 ## Choosing which busbar to split
@@ -167,7 +198,56 @@ end
 best
 ```
 
-A priori metrics for shortlisting promising busbars — rather than enumerating them - have been developed in this paper: [![DOI](https://img.shields.io/badge/DOI-10.1016/j.epsr.2026.113611-blue)](https://www.sciencedirect.com/science/article/pii/S0378779626009041).
+The package ships this sweep as `split_one_bus_per_time`. It splits each AC busbar in turn,
+runs `run_BuS_AC`, and — when the BuS model solves to optimality or local optimality —
+runs the feasibility check and two OPFs on the resulting fixed topology:
+
+```julia
+sweep = _PMTP.split_one_bus_per_time(
+    data,
+    1.0,                                              # cost of opening the busbar coupler
+    LPACCPowerModel, ACPPowerModel, LPACCPowerModel,  # formulations: BuS, check i, check ii
+    gurobi,          ipopt,         ipopt,            # optimizers:   BuS, check i, check ii
+    s,
+)
+```
+
+!!! warning "Argument order"
+    The three formulations come first, then the three optimizers in the same order — not
+    formulation/optimizer pairs.
+
+The result is keyed by bus id, each entry holding `"BuS"`, `"AC_FC"` and `"LPAC_FC"`
+(the latter two are empty if the BuS model did not solve):
+
+```julia
+ranked = sort([(b, r["AC_FC"]["objective"]) for (b, r) in sweep if haskey(r["AC_FC"], "objective")],
+              by = last)
+```
+
+### A priori metrics
+
+Rather than enumerating every busbar, promising candidates can be shortlisted from a single
+OPF. `compute_metrics_per_bus` implements the metrics of
+*Identifying Best Candidates for Busbar Splitting* (EPSR, 2027)
+[![DOI](https://img.shields.io/badge/DOI-10.1016/j.epsr.2026.113611-blue)](https://doi.org/10.1016/j.epsr.2026.113611):
+
+```julia
+s_duals = Dict("output" => Dict("branch_flows" => true, "duals" => true), "conv_losses_mp" => true)
+metrics = _PMTP.compute_metrics_per_bus(data, ACPPowerModel, ipopt, s_duals)
+```
+
+The settings **must** request duals and branch flows. For every bus, `metrics[bus_id]` holds:
+
+| Key | Meaning |
+|---|---|
+| `lam_kcl_r` | absolute value of the dual of the active-power balance (nodal price) |
+| `diff` | sum, over the connected AC branches, of the absolute nodal-price difference across the branch |
+| `n_branches` | number of connected AC branches |
+| `connected_branches[br_id]` | `utilization` (`abs(pf) / rate_a`), `va_fr`, `va_to`, `va_fr_minus_va_to` |
+
+Busbars with a large `diff` and highly utilized connected branches are the natural first
+candidates. Tutorial II in the [tutorials](tutorials.md) compares this shortlist against the
+full sweep on the IEEE 30-bus case.
 
 ## What to expect
 

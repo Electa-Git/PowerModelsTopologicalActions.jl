@@ -111,7 +111,9 @@ run_BuS_AC_DC(data_split, model_constructor, optimizer; kwargs...)
 ```
 
 Choose the function matching the preparation you performed. `run_BuS_AC_DC` requires a
-network prepared by *both* `AC_busbars_split` and `DC_busbars_split`, applied in that order —
+network prepared by *both* `AC_busbars_split` and `DC_busbars_split`. The two can be applied
+in either order; the `_ordered` and multiconductor variants cannot — see
+[Known issues and gotchas](known_issues.md).
 
 ### The constraint set
 

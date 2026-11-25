@@ -15,6 +15,7 @@ makedocs(
         "Getting started" => [
             "Installation" => "installation.md",
             "Quick start"  => "quickstart.md",
+            "Tutorials"    => "tutorials.md",
         ],
         "Manual" => [
             "Optimal transmission switching" => "ots.md",

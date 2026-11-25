@@ -16,6 +16,12 @@ This is the first package able to perform both OTS and busbar splitting on **eit
 - AC / DC / combined AC-DC busbar splitting
 - Busbar splitting combined with OTS on selected busbars.
 
+**Analysis helpers**
+
+- Busbar candidate screening: OPF-based metrics per busbar (`compute_metrics_per_bus`) and a
+  one-busbar-at-a-time sweep with AC feasibility check (`split_one_bus_per_time`)
+- Plotting: branch-flow comparison before/after a topology change (`plot_branch_flows_comparison`)
+
 ## Power Flow formulations
 
 **Most refined**
@@ -28,10 +34,18 @@ This is the first package able to perform both OTS and busbar splitting on **eit
 - QC relaxation — MIQCP
 - DC approximation — MILP, partial support
 
+!!! note "Registered release vs. `main`"
+    These docs describe the API on `main`. The registered v0.1.0 still uses the old
+    busbar-splitting names (`run_acdc_BuS_AC`, `run_acdc_BuS_DC`, `run_acdc_BuS_AC_DC`) and has
+    no plotting helper. Install the development version with
+    `] add PowerModelsTopologicalActions#main`, or see the rename table in the
+    [API reference](api.md#Busbar-splitting).
+
 ## Where to start
 
 - [Installation](installation.md) — getting the package and a solver stack running.
 - [Quick start](quickstart.md) — a complete OTS and a complete BuS run on the 5-bus AC/DC case.
+- [Tutorials](tutorials.md) — the ETCH webinar tutorial (free solvers only) and the other example scripts.
 - [Optimal transmission switching](ots.md) — the OTS problem specifications.
 - [Busbar splitting](busbar_splitting.md) — the three-stage BuS workflow, which is the more involved one.
 - [Data model](data_model.md) — what `AC_busbars_split` actually does to your network dictionary.
@@ -51,7 +65,8 @@ Contributions are welcome, particularly:
 - configurable big-M values, currently hardcoded per formulation file
 - an API for restricting the switchable element set
 - N-1 security constraints
-- an API visually plotting the results of the grid topology optimization models (switches status and substation topology)
+- an API visually plotting the optimized substation topology and switch states (branch-flow
+  comparison plots are already available through `plot_branch_flows_comparison`)
 
 ## Citing
  

@@ -8,14 +8,30 @@ wrong. Knowing about them up front is considerably cheaper than discovering them
 
 ## Critical
 
-Calling `AC_busbars_split` second wipes the DC couples, and
-`build_BuS_AC_DC` then iterates an empty `:dcswitch_couples`, so
-`constraint_exclusivity_dc_switch`, `constraint_ZIL_dc_switch`, and
-`constraint_BS_OTS_dcbranch` are never posted. The model still solves; the answer is
-meaningless, and typically over-optimistic, because DC elements are free to connect to both
+### Some split variants still wipe the other side's switch couples
+
+`build_BuS_AC_DC` posts the DC exclusivity, ZIL and BuS-OTS constraints by iterating
+`:dcswitch_couples` (and the AC ones by iterating `:switch_couples`). If either dictionary is
+empty, those constraints are silently never posted: the model still solves, but the answer
+is meaningless, and typically over-optimistic, because elements are free to connect to both
 halves of a busbar at once.
 
-There is no error and no warning. If you ever reorder these calls, assert first:
+**Fixed for the main split functions.** `AC_busbars_split` and `DC_busbars_split` now only
+initialize the other side's couple dictionary when it is missing, so they can be combined in
+either order. On v0.1.0, calling `AC_busbars_split` after `DC_busbars_split` still wipes
+`data["dcswitch_couples"]`; call AC first there.
+
+**Still present** in the variants:
+
+| Function | Resets |
+|---|---|
+| `AC_busbars_split_ordered` | `data["dcswitch_couples"]` |
+| `AC_busbars_split_multiconductor` | `data["dcswitch_couples"]` |
+| `DC_busbars_split_multiconductor` | `data["switch_couples"]` |
+| `DC_busbars_split_multiconductor_updated` | `data["switch_couples"]` |
+
+When combining these with a split on the other side, call them first, and in any case assert
+before solving — there is no error and no warning otherwise:
 
 ```julia
 @assert !isempty(data["switch_couples"])
@@ -103,19 +119,25 @@ is_open = sw["status"] == 0         # ✗ will silently never fire
 
 ## Structural gaps
 
-### `Pkg.test()` still checks nothing
+### Test coverage is limited to the 5-bus case
 
-`test/runtests.jl` is a zero-byte file, so `Pkg.test()` passes trivially and gives no
-regression protection.
+`Pkg.test()` now runs a real suite (`test/runtests.jl`):
 
-`test/scripts/5_buses_test_case_BuS_test.jl` now contains the full 5-bus busbar-splitting
-workflow, which is a useful worked reference, but it is a demo script rather than a test: it
-contains no `@test` assertions, nothing calls it from `runtests.jl`, and its data path
-(`joinpath(@__DIR__, "data_sources", ...)`) resolves to `test/scripts/data_sources/` while
-the case files actually live in `test/data_sources/`.
+- solver-free structural checks of `AC_busbars_split` and `DC_busbars_split` (number of
+  couplers and switches, couples pointing at existing switches, input not mutated,
+  multi-busbar splits);
+- the 5-bus AC/DC-OPF baseline (194.139 \$/h);
+- LPAC-BuS on busbar 2 followed by the AC feasibility check (186.349 \$/h), and, when a
+  Gurobi licence is available, the exact AC-BuS MINLP through Juniper. Without a licence the
+  suite falls back to SCIP and skips the MINLP check.
 
-Until that is wired up, validate changes against the published results in
-[Formulations](formulations.md). The 5-bus AC-OPF objective of 194.139 \$/h and the AC-BuS big-M result of 184.972 \$/h are good canaries.
+Not covered: OTS, DC and combined AC/DC busbar splitting, the multiconductor variants, the
+screening metrics and the plotting helper. Validate changes to those against the published
+results in [Formulations](formulations.md).
+
+`test/example_scripts/5_buses_test_case_BuS_test.jl` is a worked reference script for the
+5-bus workflow, not a test: it has no `@test` assertions and is not called from
+`runtests.jl`.
 
 
 ### Big-M values are hardcoded

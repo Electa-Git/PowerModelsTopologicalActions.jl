@@ -48,7 +48,13 @@ The three points to be improved soon:
    output is the transformed `input_ac_check`. Always pass a `deepcopy`.
 2. **All six arguments are required**, including the original unsplit network, which is used
    to work out which bus indices predate the split.
-3. **It prints extensively.** Every reconnection is logged. This is deliberate, the log is how you find out which element ended up where. I recommend to build some functions to further check the topologies (e.g. how many switches are connected to each part of the split busbar), as I still have not developed a plotting tool to immediately see the optimized topology. Feel free to propose efficient ways to do so (smiling face)
+3. **It prints extensively.** Every reconnection is logged. This is deliberate, the log is how you find out which element ended up where. To see the effect of the new topology on the power flows, use
+   `plot_branch_flows_comparison(data, result_opf, result_fc)` (see
+   [Quick start](quickstart.md#Visualizing-the-effect-on-the-power-flows)). A plot of the
+   substation topology itself (which element ended up on which half) does not exist yet, so
+   I still recommend building small helper functions for that, e.g. counting how many
+   switches are closed towards each part of the split busbar. Feel free to propose efficient
+   ways to do so (smiling face)
 
 ## What it does
 

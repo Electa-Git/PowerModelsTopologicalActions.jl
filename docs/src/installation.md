@@ -9,12 +9,21 @@
 
 ## Installing the package
 
-The package is not yet in the Julia General registry, so install it directly from GitHub:
+The package is in the Julia General registry:
 
 ```julia
-   ] add PowerModelsTopologicalActions
+   ] add PowerModelsTopologicalActions          # registered release, v0.1.0
+   ] add PowerModelsTopologicalActions#main     # development version
 ```
- 
+
+!!! warning "v0.1.0 uses the old busbar-splitting names"
+    The registered v0.1.0 predates the renaming of the busbar-splitting problem
+    specifications (`run_acdc_BuS_*` → `run_BuS_*`) and does not include
+    `plot_branch_flows_comparison`. The examples in these docs follow `main`; install
+    `#main` to run them unchanged.
+
+Installing the package also pulls in Plots.jl and StatsPlots.jl, used by the plotting
+helper.
 
 Or, for development:
 
@@ -36,14 +45,15 @@ using PowerModelsTopologicalActions; const _PMTP = PowerModelsTopologicalActions
 
 Which solver you need depends entirely on the formulation, because the formulation
 determines the problem class. Getting this pairing wrong is the single most common source
-of confusing failures. I recommend using Gurobi for the solving the topology optimization models. 
-If you do not have access to it, I made available a test of the AC-feasibility check with some results obtained with Gurobi. 
-Using a free solver instead of Gurobi is still something which is work in progress.
+of confusing failures. I recommend using Gurobi for solving the topology optimization
+models: it produced the published results and is the fastest option. If you do not have a
+licence, [SCIP](https://github.com/scipopt/SCIP.jl) is a free alternative; the test suite
+falls back to it automatically and the [tutorial](tutorials.md) uses it throughout.
 
 | Formulation | Problem class | Solver |
 |---|---|---|
-| `ACPPowerModel` | MINLP | [Juniper](https://github.com/lanl-ansi/Juniper.jl) wrapping an NLP solver (Ipopt) and a MIP solver (Gurobi) |
-| `LPACCPowerModel` | MIQCP | Gurobi, or another MIQCP-capable solver |
+| `ACPPowerModel` | MINLP | [Juniper](https://github.com/lanl-ansi/Juniper.jl) wrapping an NLP solver (Ipopt) and a MIP solver (Gurobi or SCIP) |
+| `LPACCPowerModel` | MIQCP | Gurobi, SCIP, or another MIQCP-capable solver |
 
 
 
@@ -68,6 +78,28 @@ juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
 ```
 
 Use `juniper` for `ACPPowerModel`, `gurobi` for everything else. `ipopt` is more stable than `gurobi` for the `LPACCPowerModel` simulation of the OPF model. `gurobi` should be used for every grid topology optimization model. 
+
+### A free solver stack
+
+Without a Gurobi licence, replace it with SCIP, both on its own and inside Juniper. This is
+the configuration used in the [tutorial](tutorials.md):
+
+```julia
+using JuMP, Ipopt, Juniper, SCIP
+
+ipopt   = JuMP.optimizer_with_attributes(Ipopt.Optimizer,
+              "tol" => 1e-6, "print_level" => 0)
+
+scip    = JuMP.optimizer_with_attributes(SCIP.Optimizer,
+              "display/verblevel" => 0, "limits/gap" => 1e-4)
+
+juniper = JuMP.optimizer_with_attributes(Juniper.Optimizer,
+              "nl_solver"  => ipopt,
+              "mip_solver" => scip,
+              "time_limit" => 300)
+```
+
+Expect longer solve times than with Gurobi, particularly beyond the small test cases.
 
 
 ### Faster Ipopt
@@ -108,4 +140,11 @@ Test networks live in `test/data_sources/`
 | `pglib_opf_case588_sdet_acdc.m` | 588 AC buses, 7 DC buses |
 | `case3120sp_mcdc.m` | 3120 AC buses, 5 DC buses |
 | `cigre_b4_dc_grid.m` | CIGRE B4 DC grid |
-| `case5.m`, `case14.m`, `case24.m`, `case30_ieee.m`, `case57_ieee.m`, `case118_ieee.m`, `case793_goc.m`, `case3375wp_k.m` | AC-only cases |
+| `case5.m`, `case14.m`, `case24.m`, `pglib_opf_case30_ieee.m`, `pglib_opf_case57_ieee.m`, `pglib_opf_case118_ieee.m`, `pglib_opf_case793_goc.m`, `pglib_opf_case3375wp_k.m` | AC-only cases |
+
+From an installed package, locate them with:
+
+```julia
+const PMTA_DIR = dirname(dirname(pathof(PowerModelsTopologicalActions)))
+file = joinpath(PMTA_DIR, "test", "data_sources", "case5_acdc.m")
+```
