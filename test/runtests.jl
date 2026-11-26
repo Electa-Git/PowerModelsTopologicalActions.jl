@@ -144,6 +144,8 @@ const OBJ_BUS_AC  = 185.209   # AC-OTS, AC branches switchable
             @test length(couples_two) > length(couples_one)
         end
 
+        include("feasibility_check.jl")
+
     end
 
     # -----------------------------------------------------------------------
